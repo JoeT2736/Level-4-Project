@@ -1,0 +1,141 @@
+%%%%% Document Setup %%%%%%%%
+
+\documentclass[10pt,twocolumn]{revtex4-2}    % Font size (10,11 or 12pt) and column number (one or two).
+
+
+\usepackage{times}                          % Times New Roman font type
+
+\usepackage[a4paper, left=1.85cm, right=1.85cm,top=1.85cm, bottom=1.85cm]{geometry}       % Defines paper size and margin length
+
+\usepackage[font=small, labelfont=bf]{caption}                      % Defines caption font size as 9pt and caption title bolded
+
+
+\usepackage{graphics,graphicx,epsfig,ulem}	% Makes sure all graphics works
+\usepackage{amsmath} 						% Adds mathematical features for equations
+
+\usepackage{etoolbox}                       % Customise date to preferred format
+
+\makeatletter
+\patchcmd{\frontmatter@RRAP@format}{(}{}{}{}
+\patchcmd{\frontmatter@RRAP@format}{)}{}{}{}
+\renewcommand\Dated@name{}
+\makeatother
+
+\usepackage{fancyhdr}
+
+
+\pagestyle{fancy}                           % Insert header
+\renewcommand{\headrulewidth}{0pt}
+\lhead{A. Student}                          % Your name
+\rhead{Example Lab Report Title}            % Your report title               
+
+\def\bibsection{\section*{References}}        % Position reference section correctly
+
+
+%%%%% Document %%%%%    
+\begin{document}
+
+
+\title{Example Lab Report} 
+\date{Submitted: \today{}, Date of Experiment: EXPERIMENT DATE}
+\author{A. Student (and L. Partner)}
+\affiliation{\normalfont L1 Discovery Labs, Lab Group XXX, Lab Day}
+
+
+\begin{abstract}              
+ 
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed lacinia diam id odio consequat, vel cursus lectus aliquam. Quisque quis neque massa. Phasellus ut mi nulla. Morbi egestas urna mauris, sit amet accumsan nibh accumsan id. Etiam quis urna at felis imperdiet euismod non eget ligula. Vivamus sit amet ultricies massa. Proin tempus vehicula mi, non dapibus ligula faucibus nec. Maecenas laoreet ante sed dolor scelerisque, at condimentum dolor mollis. Vivamus volutpat arcu sed metus pellentesque aliquam.
+
+\end{abstract}
+
+\maketitle
+
+\thispagestyle{plain} % produces page number for front page
+
+\section{Introduction} 
+
+%%% example text follows %%%
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed lacinia diam id odio consequat, vel cursus lectus aliquam. Quisque quis neque massa. Phasellus ut mi nulla. Morbi egestas urna mauris, sit amet accumsan nibh accumsan id. Etiam quis urna at felis imperdiet euismod non eget ligula. Vivamus sit amet ultricies massa. Proin tempus vehicula mi, non dapibus ligula faucibus nec. Maecenas laoreet ante sed dolor scelerisque, at condimentum dolor mollis. Vivamus volutpat arcu sed metus pellentesque aliquam. Etiam congue augue sit amet nibh sollicitudin vestibulum. Phasellus a ante vulputate, pellentesque quam in, volutpat purus.
+
+Duis eget tellus tortor. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. In tellus nulla, sodales eu pulvinar at, accumsan quis magna. Nunc sed lacus diam. Nam enim mauris, imperdiet ut egestas quis, tincidunt at odio. Ut viverra nulla at libero dictum aliquet. Suspendisse lacus lacus, imperdiet nec elit nec, ullamcorper facilisis ex. Suspendisse potenti. Fusce lacus enim, volutpat non massa a, luctus tristique quam. Quisque et orci quis arcu rhoncus eleifend consectetur ac quam. Cras suscipit nulla diam, aliquet iaculis libero egestas eu. Fusce metus sapien, faucibus in feugiat in, lobortis eu odio. Interdum et malesuada fames ac ante ipsum primis in faucibus.
+
+Proin sit amet mauris tincidunt, consectetur nisi ultrices, dapibus elit. Nullam vitae faucibus odio, pharetra ultrices tortor. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Sed sed blandit orci. Fusce sed ullamcorper quam. Mauris pretium quam quis imperdiet dapibus. Praesent tincidunt posuere lectus. Curabitur at justo tortor. Fusce leo tellus, gravida sit amet felis ullamcorper, maximus ultricies dolor.
+
+\section{Methods} 
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi id egestas ante. Nam dolor arcu, feugiat sit amet dolor eu, tincidunt efficitur felis. Quisque ac ex sed orci finibus lobortis ut a felis. Morbi dolor odio, semper sit amet porta vel, venenatis quis erat. Ut fermentum eleifend ornare. Ut venenatis accumsan lectus, at varius eros bibendum in. Sed gravida lacus felis, in placerat eros ultricies id. Cras eget mauris diam. Fusce at libero sollicitudin, iaculis sem nec, finibus nibh. Aenean varius nec erat porta elementum.
+
+In et interdum ante. Mauris lobortis finibus lorem id sodales. Vivamus suscipit dolor in est maximus dignissim. Donec eu luctus turpis, nec faucibus dolor. Mauris ut nunc commodo, aliquet lectus at, dictum mi. Donec lorem diam, sodales ac tincidunt ut, iaculis ac urna. Aenean sagittis eros id malesuada egestas. Curabitur viverra convallis odio sed sodales. Praesent ut sem ex.
+
+Sed condimentum magna et ligula gravida suscipit. Donec at sagittis felis. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Donec risus mi, volutpat vel mollis ac, ultrices id leo. Proin vitae condimentum orci. Pellentesque non orci in erat elementum aliquet hendrerit et mi. Pellentesque a nisi luctus, interdum dolor sed, tincidunt libero. Maecenas rutrum purus non ligula gravida feugiat. Donec laoreet risus sit amet mi pellentesque, volutpat blandit elit eleifend. Etiam posuere imperdiet finibus. Mauris tincidunt nunc volutpat lobortis convallis. Praesent dignissim leo nec nisi hendrerit, facilisis auctor arcu tempus. Quisque eget accumsan lectus, sed pharetra urna. Pellentesque sed quam quis metus viverra ullamcorper sed malesuada purus.
+
+Donec finibus, tellus sit amet luctus sodales, lectus ante accumsan ligula, at condimentum lorem justo a sapien. Phasellus vel tortor vitae metus lacinia efficitur ac vel ex. Aenean eget congue leo. Aliquam cursus mauris sit amet arcu dignissim, vel condimentum nisi sodales. Etiam iaculis sodales mattis. Donec pharetra porta neque in vehicula. Nullam molestie, lacus auctor suscipit vestibulum, mauris libero ornare nunc, et faucibus nisi elit in massa. Nullam et maximus ante, et sollicitudin est.
+ 
+\section{Results} 
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent lacus lectus, elementum sagittis eros in, molestie aliquam sapien. Curabitur viverra eros sed nulla mattis aliquet. Aliquam ullamcorper metus vitae feugiat vulputate. Aliquam sed ultrices ipsum, quis vulputate tellus. Quisque cursus nisl ac orci posuere, vitae posuere sem elementum. Fusce ultrices nibh arcu, sed malesuada orci ullamcorper a. Fusce id aliquet nisi. Mauris in mollis turpis. Ut vestibulum est erat, quis vulputate orci pretium eget. Fusce nec tincidunt lacus.
+
+Fusce aliquam ligula vitae nisl aliquam aliquet. Mauris pellentesque quam quis est porta, at imperdiet tellus ornare. Nam dapibus enim quam, et faucibus dolor egestas ut. Quisque eu sem maximus, faucibus lectus eu, sagittis ex. Etiam luctus, nulla ut pretium iaculis, magna augue lobortis metus, at blandit arcu mauris ac eros. Suspendisse justo libero, consequat aliquet porttitor a, suscipit non felis. Aliquam non auctor diam. Donec interdum metus a accumsan tempor. Phasellus commodo facilisis sem, vel finibus nisi. Vivamus est odio, sagittis nec ex ut, eleifend maximus velit. Phasellus in vehicula lectus. Proin ornare mauris ut pellentesque tempus.
+
+Cras eget iaculis ipsum. Ut pretium ac sapien et blandit. Nullam sem lectus, accumsan eget vulputate nec, tincidunt auctor purus. Mauris in ante a leo porta scelerisque ut at erat. Nulla varius et mauris vel suscipit. Nam porta dui nec massa ornare, at porttitor purus aliquam. Vivamus non elit convallis, varius orci nec, tincidunt metus.
+
+\section{Discussion} 
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque rutrum cursus turpis ac gravida. Etiam eu eros placerat, varius nisi ac, vehicula ante. Curabitur placerat erat at justo porttitor convallis. Nunc eu felis at enim porta faucibus. Aliquam lobortis eu massa vel auctor. Pellentesque ullamcorper pulvinar nunc. Vivamus mollis enim ut nisi suscipit lacinia. Suspendisse euismod lectus vitae laoreet faucibus. Aenean eleifend malesuada urna, ac laoreet dolor suscipit ac. Proin pretium, erat vitae facilisis hendrerit, ligula est congue risus, quis mattis urna mi et nisl. Aliquam erat volutpat. Nam metus erat, tincidunt id velit a, posuere venenatis mi.
+
+Nullam malesuada purus massa, non hendrerit tortor blandit at. Donec vehicula tincidunt enim non ultrices. Maecenas molestie semper nisi id eleifend. Mauris iaculis nisl vitae diam ornare, ut pharetra nunc finibus. Sed sodales luctus tortor a eleifend. Pellentesque porta eu nibh quis placerat. Proin convallis urna laoreet mi pretium gravida. Maecenas non mi efficitur, facilisis lacus quis, pulvinar sapien.
+
+Curabitur rutrum libero quis libero posuere, eu sodales nunc tincidunt. Pellentesque auctor urna viverra quam rutrum porttitor. Vestibulum fermentum egestas ex finibus hendrerit. Donec maximus leo ac magna molestie fermentum. Integer quis tortor lectus. Phasellus porta, mauris eu pulvinar rutrum, justo lacus lacinia velit, eu sodales libero ex vitae metus. Pellentesque laoreet lectus elit, quis convallis mi aliquam vel. Ut nibh felis, porttitor id mauris et, vehicula mollis ligula. Nunc at consequat magna, nec imperdiet est. Quisque tempor pretium pretium. Nulla scelerisque pellentesque felis, eleifend porta sem tempor at. Aliquam et sollicitudin mauris. Integer venenatis libero semper, varius diam in, dictum tortor.
+
+Donec condimentum felis nunc, eget volutpat odio ultrices eget. Integer eu congue eros, quis eleifend eros. Aenean ac commodo neque, vitae vehicula augue. Integer vestibulum purus eu vestibulum suscipit. Donec eleifend imperdiet lorem quis laoreet. Duis lacinia sollicitudin nunc, eu cursus est vehicula id. Pellentesque ornare, mauris et tristique placerat, sem libero aliquam lorem, at porttitor purus sem et arcu. Ut iaculis metus eu nisi tempus, a gravida tellus pharetra. Curabitur turpis ipsum, auctor in augue eu, sagittis auctor libero. Interdum et malesuada fames ac ante ipsum primis in faucibus. Aliquam lorem risus, ornare in ligula et, convallis varius risus. In vehicula nibh non sem consectetur, eget lacinia nisi commodo. Sed auctor ex sit amet convallis lacinia. Vivamus ligula orci, interdum sed eros eu, maximus gravida nibh. Quisque pretium, diam sed bibendum tristique, turpis risus facilisis erat, a porttitor orci purus eu felis. Nulla pellentesque vestibulum elit accumsan vehicula.
+
+Proin commodo cursus egestas. Praesent vulputate tortor vel elit semper, sit amet euismod purus finibus. Fusce hendrerit lacinia felis. Curabitur a volutpat ligula. Praesent at nisl lorem. Sed in hendrerit purus. Nulla et tempor neque. Sed vehicula justo non odio vestibulum varius. Praesent pellentesque nulla urna, vel aliquam diam imperdiet id. Suspendisse id orci consequat velit eleifend egestas.
+
+
+\section{Conclusions}
+ 
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec volutpat sapien mauris, id lacinia leo aliquet at. Etiam ut sollicitudin libero. Fusce dictum odio orci, et vehicula erat accumsan sit amet. Cras eu augue et magna pretium egestas. Interdum et malesuada fames ac ante ipsum primis in faucibus. Vivamus consectetur elit eget efficitur gravida. Vivamus leo mauris, scelerisque vel mi id, sodales vulputate urna. Vestibulum mattis orci vestibulum purus volutpat malesuada.
+
+Mauris luctus tortor a tortor molestie auctor. Morbi euismod, elit sed iaculis porttitor, nisl magna mattis nulla, sed aliquam quam eros id magna. Sed semper vestibulum odio, id ullamcorper lorem. Nam justo sem, tristique eget fermentum in, malesuada vitae magna. Cras a luctus tellus, at egestas elit. Praesent non blandit dolor. Vestibulum sed lacus nibh.
+
+Nam non lacus eleifend, tincidunt justo vitae, congue arcu. Nunc arcu ante, sollicitudin suscipit odio vitae, commodo fermentum purus. Ut nec venenatis mi, tempus rhoncus sem. Integer id tortor ut eros ultrices semper non non elit. Nunc eget mattis turpis. Pellentesque pulvinar semper molestie. Suspendisse aliquam hendrerit massa eget tempus. Nulla in diam et tellus rutrum fermentum sit amet quis mi.
+
+
+\begin{acknowledgments}
+(OPTIONAL) The author would like to thank...
+\end{acknowledgments}
+
+\begin{thebibliography}{}
+
+\bibitem{ref01} A. N. Other, Title of the Book, edition, publishers, place of publication (year of publication), p. 123.   % example reference 
+
+
+\end{thebibliography} 
+
+\newpage
+
+\section*{Error Appendix}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque rutrum cursus turpis ac gravida. Etiam eu eros placerat, varius nisi ac, vehicula ante. Curabitur placerat erat at justo porttitor convallis. Nunc eu felis at enim porta faucibus. Aliquam lobortis eu massa vel auctor. Pellentesque ullamcorper pulvinar nunc. Vivamus mollis enim ut nisi suscipit lacinia. Suspendisse euismod lectus vitae laoreet faucibus. Aenean eleifend malesuada urna, ac laoreet dolor suscipit ac. Proin pretium, erat vitae facilisis hendrerit, ligula est congue risus, quis mattis urna mi et nisl. Aliquam erat volutpat. Nam metus erat, tincidunt id velit a, posuere venenatis mi.
+
+Nullam malesuada purus massa, non hendrerit tortor blandit at. Donec vehicula tincidunt enim non ultrices. Maecenas molestie semper nisi id eleifend. Mauris iaculis nisl vitae diam ornare, ut pharetra nunc finibus. Sed sodales luctus tortor a eleifend. Pellentesque porta eu nibh quis placerat. Proin convallis urna laoreet mi pretium gravida. Maecenas non mi efficitur, facilisis lacus quis, pulvinar sapien.
+
+Curabitur rutrum libero quis libero posuere, eu sodales nunc tincidunt. Pellentesque auctor urna viverra quam rutrum porttitor. Vestibulum fermentum egestas ex finibus hendrerit. Donec maximus leo ac magna molestie fermentum. Integer quis tortor lectus. Phasellus porta, mauris eu pulvinar rutrum, justo lacus lacinia velit, eu sodales libero ex vitae metus. Pellentesque laoreet lectus elit, quis convallis mi aliquam vel. Ut nibh felis, porttitor id mauris et, vehicula mollis ligula. Nunc at consequat magna, nec imperdiet est. Quisque tempor pretium pretium. Nulla scelerisque pellentesque felis, eleifend porta sem tempor at. Aliquam et sollicitudin mauris. Integer venenatis libero semper, varius diam in, dictum tortor.
+
+Donec condimentum felis nunc, eget volutpat odio ultrices eget. Integer eu congue eros, quis eleifend eros. Aenean ac commodo neque, vitae vehicula augue. Integer vestibulum purus eu vestibulum suscipit. Donec eleifend imperdiet lorem quis laoreet. Duis lacinia sollicitudin nunc, eu cursus est vehicula id. Pellentesque ornare, mauris et tristique placerat, sem libero aliquam lorem, at porttitor purus sem et arcu. Ut iaculis metus eu nisi tempus, a gravida tellus pharetra. Curabitur turpis ipsum, auctor in augue eu, sagittis auctor libero. Interdum et malesuada fames ac ante ipsum primis in faucibus. Aliquam lorem risus, ornare in ligula et, convallis varius risus. In vehicula nibh non sem consectetur, eget lacinia nisi commodo. Sed auctor ex sit amet convallis lacinia. Vivamus ligula orci, interdum sed eros eu, maximus gravida nibh. Quisque pretium, diam sed bibendum tristique, turpis risus facilisis erat, a porttitor orci purus eu felis. Nulla pellentesque vestibulum elit accumsan vehicula.
+
+Proin commodo cursus egestas. Praesent vulputate tortor vel elit semper, sit amet euismod purus finibus. Fusce hendrerit lacinia felis. Curabitur a volutpat ligula. Praesent at nisl lorem. Sed in hendrerit purus. Nulla et tempor neque. Sed vehicula justo non odio vestibulum varius. Praesent pellentesque nulla urna, vel aliquam diam imperdiet id. Suspendisse id orci consequat velit eleifend egestas.
+
+
+\clearpage
+
+\onecolumngrid %Puts Summary into single column
+
+\section*{Scientific Summary for a General Audience}
+
+
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent lacus lectus, elementum sagittis eros in, molestie aliquam sapien. Curabitur viverra eros sed nulla mattis aliquet. Aliquam ullamcorper metus vitae feugiat vulputate. Aliquam sed ultrices ipsum, quis vulputate tellus. Quisque cursus nisl ac orci posuere, vitae posuere sem elementum. Fusce ultrices nibh arcu, sed malesuada orci ullamcorper a. Fusce id aliquet nisi. Mauris in mollis turpis. Ut vestibulum est erat, quis vulputate orci pretium eget. Fusce nec tincidunt lacus.
+
+Fusce aliquam ligula vitae nisl aliquam aliquet. Mauris pellentesque quam quis est porta, at imperdiet tellus ornare. Nam dapibus enim quam, et faucibus dolor egestas ut. Quisque eu sem maximus, faucibus lectus eu, sagittis ex. Etiam luctus, nulla ut pretium iaculis, magna augue lobortis metus, at blandit arcu mauris ac eros. Suspendisse justo libero, consequat aliquet porttitor a, suscipit non felis. Aliquam non auctor diam. Donec interdum metus a accumsan tempor. Phasellus commodo facilisis sem, vel finibus nisi. Vivamus est odio, sagittis nec ex ut, eleifend maximus velit. Phasellus in vehicula lectus. Proin ornare mauris ut pellentesque tempus.
+
+\end{document}
