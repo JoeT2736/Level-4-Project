@@ -44,7 +44,7 @@
 
 \begin{abstract}              
  
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed lacinia diam id odio consequat, vel cursus lectus aliquam. Quisque quis neque massa. Phasellus ut mi nulla. Morbi egestas urna mauris, sit amet accumsan nibh accumsan id. Etiam quis urna at felis imperdiet euismod non eget ligula. Vivamus sit amet ultricies massa. Proin tempus vehicula mi, non dapibus ligula faucibus nec. Maecenas laoreet ante sed dolor scelerisque, at condimentum dolor mollis. Vivamus volutpat arcu sed metus pellentesque aliquam.
+Lorem
 
 \end{abstract}
 
@@ -52,54 +52,204 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed lacinia diam id odi
 
 \thispagestyle{plain} % produces page number for front page
 
+
+\section{Notes}
+
+\subsection{Collective motion in biological systems}
+
+An important reason for the interest in collective motion is the appearance of new, extremely efficient and informative techniques to collect data about the details of motions within a collective of organisms.
+
+A transition occurs from disorder to ordered motion (flocking), as a function of the relevant parameters. 
+
+Thus, if a system is made of units
+
+— that are rather similar;
+— moving with a nearly constant absolute velocity and are capable of changing their direction (gaining momentum from interaction with the environment);
+— interacting within a speciﬁc interaction range by changing their direction of motion, in a way involving ,an effective alignment; and
+— which are subject to a noise of a varying magnitude,
+collective motion is bound to occur in almost all of the possible cases.
+
+Few dozen to few thousand units. Most real life observations are at mesoscopic scale.
+
+Leaders/ informed individual having a priori preference. 
+
+Units that can be reached by neighbouring units belong to same cluster. Behaviour within cluster highly correlated. 
+
+Force mapping technique - infer interaction rules from experimental data. (GPS tracking of individuals within a flock).
+
+\subsubsection{Vicsek Model}
+Self-propelled particles at constant speed, choose at discrete time steps their new direction to be an average of that of their neighbours located within unit distance. Allingment rule competes with perturbations from noise term. This noise in the communication among individuals drives a phase transition.
+
+\subsubsection{Gregoire}
+Extra attraction-repulsion term in above model, so as to prevent the dissolving of flocks in open space.
+
+\subsubsection{Ballerini}
+Starling flocks - individuals interact mostly with neighbours determined by topological rules and not metric criteria.
+
+\subsubsection{Camperi} 
+Topological models much more stable against noise and external perturbations than metric.
+
+\subsubsection{Couzin}
+change in radius of orientation - sudden transitions at school level in terms of collective behaviours. 
+
+\subsubsection{Hemelrijk \& Hildenbrandt}
+Extension on zone models to account for speed variability. Discuss shape and internal structure of schools and flocks.
+
+\subsubsection{Grunbaum}
+Spatial memory effects - distribution at group level.
+
+\subsubsection{Romanczuk \& Schimansky-Geier}
+Self-propelled particles model - only attractive and repulsive interactions. For some parameter regime, large scale collective motion without any explicit velocity-allingment mechanism.
+
+\subsubsection{Buhl}
+Locusts - field recordings and computer simpulations, to infer interactions rules.
+
+\subsubsection{Gautrais}
+Animal group motion - data gathered from individual scale. Yields model without any free parameters. 
+
+
+
+\subsection{Collective behaviour in animal groups: theoretical models and empirical studies}
+
+Not only in social animals but also 'selfish' birds/fish.
+
+Information flows through the system through interactions with neighbours or chemical deposition.
+
+Particles/magnetic moments - interact locally in space and can generate an ordered state with collective global properties.
+
+'mechanisms leading to collective behaviour are very general' - large scale features of many order-disorder transitions don't depend on the details of local interactions but only on some general characteristics of the system. (e.g. dimensionality of space) 'universality'
+
+Biological systems have 'motive' - finding food/nesting areas. More difficult to understand, not 1 to 1 comparison with physical systems.
+
+\subsubsection{Agent-based flocking models}
+
+Good for mechanisms of decision making and group formation and how behavioural attitudes translate into global features.
+
+Assume behavioural rules at the level of the individual. 
+
+Evolution equation specified for each agent within system, and microscopic dynamics described in terms of the social forces acting upon it. 
+
+Mostly used for schools, flocks and swarms. 
+Force experienced by individual is due to neighbour's direct interaction.
+(made for schools and flocks, later used for mammal herds and vertebrate groups)
+Cohesive and polarised groups formed.
+
+    1.Move in direction of neighbours (allingment of velocities)
+
+
+    2.Remain close to neighbours (Attraction)
+
+
+    3.Avoid collisions. (Short range repulsion.)
+
+\begin{equation}
+\mathbf{\overrightarrow{d}_i}(t+1) = \frac{1}{n_{\text{in}}} \underset{\text{alignment}}{\sum_{j=1}^{n_{\text{in}}} w_j \mathbf{\overrightarrow{d}_j}(t) \vphantom{\frac{1}{n_{\text{in}}} \sum_{j=1}^{n_{\text{in}}}}}  
++ \frac{1}{n_{\text{in}}} \underset{\text{attraction/repulsion}}{\sum_{j=1}^{n_{\text{in}}} f_{ij} \frac{\mathbf{\overrightarrow{r}_{ij}}(t)}{\left|\mathbf{\overrightarrow{r}_{ij}}(t)\right|} \vphantom{\frac{1}{n_{\text{in}}}}} + \underset{{\text{noise}}}{\mathbf{\overrightarrow{\eta_i}}(t) \vphantom{\frac{1}{n_{\text{in}}}}},
+\end{equation}
+
+Equation for update of individual velocity
+${\mathbf{\overrightarrow{d}_i}}$ - direction of motion of agent i
+
+$\mathbf{\overrightarrow{r}_{ij}}$ - 
+distance vector from agent i to j
+
+$\mathbf{\overrightarrow{\eta_i}}$ -  stochastic noise modelling of uncertainty of decision making process. 
+
+Alignment term = average over the directions of motion of the $\mathbf{n_{\text{in}}}$ interacting neighbours with weights $w_j$.
+
+$f_{ij}$ force specifying how agent i attracted/repelled by agent j. Negative at short distance, positive at large.
+
+Agent based models cannot be solved exactly. (number of individuals is large and resulting set of coupled dynamical eqs formally untreatable.) $\rightarrow$ implemented using numerical simulations. 
+
+Neighbour preferences $\rightarrow$ angle/distance [Huth and Wissel, 1992]
+
+COUZIN (2002) $\rightarrow$ relative extension of behavioural zones tuned to get, in 3D, groups of different shape, packing and alignment. {swarm-like aggregations (cohesion and low polarization), totoroidal milling groups (high polarization and global angularmomentum), and coherent dynamic groups (cohesion, high bpolarization and low momentum).} $\rightarrow$ strength of interaction terms analysed in Viscido, Parrish and Grunbaum (2004)
+
+Macroscopic behaviour of materials from the microscopic behaviour of their components. 
+
+Jadbadaie (2003) $\rightarrow$ Flocking achieved as long as network of agent interactions remains constant in time.
+
+\subsubsection{Eulerian models}
+
+Complementary approach to agent-based 
+
+Deal with populations
+
+The space represented as a lattice, the number of individuals within in the cell is followed over time. Instead of evolution of each individual as before.
+
+Relevant variables $\rightarrow$ Density {n($\overrightarrow{x}$,t)/$V_{cell}$}, and average velocity $\overrightarrow{v}$($\overrightarrow{x}$,t) possessed by individuals in that cell.
+
+Considering continuum limit $\rightarrow$ leads to convection-diffusion equations for the population density. (hydrodynamic eqs derived for fluids)
+
+Eulerian models assume groups already formed, and a large enough number of members to make coarse graining meaningful. Cannot address features smaller than the cell or times shorter than that for info to reach outside the cell. $\rightarrow$ Useful for population evolution on long time scales and for patterns of large scales.
+
+
+\subsubsection{Phenomelogical models}
+
+Chemical cues $\rightarrow$ number of individuals performing a task depends on amount of perceived chemicals and so the number of individuals depositing chemical. $\rightarrow$ Ant trails
+
+Given set of possible paths, a set of nonlinear equations can be written, describing the evolution in time of the flows of foragers along the paths
+
+Mathematically simple.
+
+
+\subsubsection{Empirical Studies}
+
+Ballerini (2008) observational study $\rightarrow$ flocking behaviour of starlings $\rightarrow$ 3D study
+
+Found flocks to be relatively thin and slide parallel to the ground $\rightarrow$ missed in 2D analysis.
+
+Density and nearest neighbour distance independent of number of individuals in group. $\rightarrow$ contrary to that of small groups in previous studies.
+
+Shape held constant proportions despite volume changes $\rightarrow$ underlying self organising mechanism. 
+
+Angular dist of neighbours around focal individual $\rightarrow$ nearest neighbour likely to be found on sides rather than the direction of motion (as suggested to small groups of fish)
+
+Flocks relatively sparse interacting units. Groups are denser at border than centre. 
+
+When turning, shape remains unaltered and velocity rotates w.r.t flocks main axes. 
+
+Interact depending on topological distance rather than metric distance and only with a fixed number of birds, not all neighbours within a fixed region of space.
+
+
+\subsection{Novel Type of Phase Transition in a System of Self-Driven Particles}
+
+Particles driven with constant absolute velocity, assumes average direction of motion of neighbouring particles with some random perturbation at each time step. $\rightarrow$ kinetic phase transition from no transport to finite net transport, through spontaneous symmetry breaking of the rotational symmetry. Transition is continuous. 
+
+Many particle systems $\rightarrow$ complex cooperative behaviour during phase transition. equilibrium systems [Scaling, universality, renormalisation] 
+
+Far from equilibrium [Aggregation, viscous flows, biological pattern formation]
+
+Model used is a transport related nonequilibrium analogue of the ferromagnetic type of models, difference of being inherently dynamic. $\rightarrow$ elementary event = motion of particle between two time steps. 
+
+Ferromagnetic interaction aligning spins $\rightarrow$ aligning direction of motion of particles (random perturbation analogy with temperature.)
+
+
+
+
+
+
+
 \section{Introduction} 
 
 %%% example text follows %%%
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed lacinia diam id odio consequat, vel cursus lectus aliquam. Quisque quis neque massa. Phasellus ut mi nulla. Morbi egestas urna mauris, sit amet accumsan nibh accumsan id. Etiam quis urna at felis imperdiet euismod non eget ligula. Vivamus sit amet ultricies massa. Proin tempus vehicula mi, non dapibus ligula faucibus nec. Maecenas laoreet ante sed dolor scelerisque, at condimentum dolor mollis. Vivamus volutpat arcu sed metus pellentesque aliquam. Etiam congue augue sit amet nibh sollicitudin vestibulum. Phasellus a ante vulputate, pellentesque quam in, volutpat purus.
-
-Duis eget tellus tortor. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. In tellus nulla, sodales eu pulvinar at, accumsan quis magna. Nunc sed lacus diam. Nam enim mauris, imperdiet ut egestas quis, tincidunt at odio. Ut viverra nulla at libero dictum aliquet. Suspendisse lacus lacus, imperdiet nec elit nec, ullamcorper facilisis ex. Suspendisse potenti. Fusce lacus enim, volutpat non massa a, luctus tristique quam. Quisque et orci quis arcu rhoncus eleifend consectetur ac quam. Cras suscipit nulla diam, aliquet iaculis libero egestas eu. Fusce metus sapien, faucibus in feugiat in, lobortis eu odio. Interdum et malesuada fames ac ante ipsum primis in faucibus.
-
-Proin sit amet mauris tincidunt, consectetur nisi ultrices, dapibus elit. Nullam vitae faucibus odio, pharetra ultrices tortor. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Sed sed blandit orci. Fusce sed ullamcorper quam. Mauris pretium quam quis imperdiet dapibus. Praesent tincidunt posuere lectus. Curabitur at justo tortor. Fusce leo tellus, gravida sit amet felis ullamcorper, maximus ultricies dolor.
+Lorem 
 
 \section{Methods} 
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi id egestas ante. Nam dolor arcu, feugiat sit amet dolor eu, tincidunt efficitur felis. Quisque ac ex sed orci finibus lobortis ut a felis. Morbi dolor odio, semper sit amet porta vel, venenatis quis erat. Ut fermentum eleifend ornare. Ut venenatis accumsan lectus, at varius eros bibendum in. Sed gravida lacus felis, in placerat eros ultricies id. Cras eget mauris diam. Fusce at libero sollicitudin, iaculis sem nec, finibus nibh. Aenean varius nec erat porta elementum.
-
-In et interdum ante. Mauris lobortis finibus lorem id sodales. Vivamus suscipit dolor in est maximus dignissim. Donec eu luctus turpis, nec faucibus dolor. Mauris ut nunc commodo, aliquet lectus at, dictum mi. Donec lorem diam, sodales ac tincidunt ut, iaculis ac urna. Aenean sagittis eros id malesuada egestas. Curabitur viverra convallis odio sed sodales. Praesent ut sem ex.
-
-Sed condimentum magna et ligula gravida suscipit. Donec at sagittis felis. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Donec risus mi, volutpat vel mollis ac, ultrices id leo. Proin vitae condimentum orci. Pellentesque non orci in erat elementum aliquet hendrerit et mi. Pellentesque a nisi luctus, interdum dolor sed, tincidunt libero. Maecenas rutrum purus non ligula gravida feugiat. Donec laoreet risus sit amet mi pellentesque, volutpat blandit elit eleifend. Etiam posuere imperdiet finibus. Mauris tincidunt nunc volutpat lobortis convallis. Praesent dignissim leo nec nisi hendrerit, facilisis auctor arcu tempus. Quisque eget accumsan lectus, sed pharetra urna. Pellentesque sed quam quis metus viverra ullamcorper sed malesuada purus.
-
-Donec finibus, tellus sit amet luctus sodales, lectus ante accumsan ligula, at condimentum lorem justo a sapien. Phasellus vel tortor vitae metus lacinia efficitur ac vel ex. Aenean eget congue leo. Aliquam cursus mauris sit amet arcu dignissim, vel condimentum nisi sodales. Etiam iaculis sodales mattis. Donec pharetra porta neque in vehicula. Nullam molestie, lacus auctor suscipit vestibulum, mauris libero ornare nunc, et faucibus nisi elit in massa. Nullam et maximus ante, et sollicitudin est.
+Lorem 
  
 \section{Results} 
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent lacus lectus, elementum sagittis eros in, molestie aliquam sapien. Curabitur viverra eros sed nulla mattis aliquet. Aliquam ullamcorper metus vitae feugiat vulputate. Aliquam sed ultrices ipsum, quis vulputate tellus. Quisque cursus nisl ac orci posuere, vitae posuere sem elementum. Fusce ultrices nibh arcu, sed malesuada orci ullamcorper a. Fusce id aliquet nisi. Mauris in mollis turpis. Ut vestibulum est erat, quis vulputate orci pretium eget. Fusce nec tincidunt lacus.
-
-Fusce aliquam ligula vitae nisl aliquam aliquet. Mauris pellentesque quam quis est porta, at imperdiet tellus ornare. Nam dapibus enim quam, et faucibus dolor egestas ut. Quisque eu sem maximus, faucibus lectus eu, sagittis ex. Etiam luctus, nulla ut pretium iaculis, magna augue lobortis metus, at blandit arcu mauris ac eros. Suspendisse justo libero, consequat aliquet porttitor a, suscipit non felis. Aliquam non auctor diam. Donec interdum metus a accumsan tempor. Phasellus commodo facilisis sem, vel finibus nisi. Vivamus est odio, sagittis nec ex ut, eleifend maximus velit. Phasellus in vehicula lectus. Proin ornare mauris ut pellentesque tempus.
-
-Cras eget iaculis ipsum. Ut pretium ac sapien et blandit. Nullam sem lectus, accumsan eget vulputate nec, tincidunt auctor purus. Mauris in ante a leo porta scelerisque ut at erat. Nulla varius et mauris vel suscipit. Nam porta dui nec massa ornare, at porttitor purus aliquam. Vivamus non elit convallis, varius orci nec, tincidunt metus.
-
+Lorem 
 \section{Discussion} 
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque rutrum cursus turpis ac gravida. Etiam eu eros placerat, varius nisi ac, vehicula ante. Curabitur placerat erat at justo porttitor convallis. Nunc eu felis at enim porta faucibus. Aliquam lobortis eu massa vel auctor. Pellentesque ullamcorper pulvinar nunc. Vivamus mollis enim ut nisi suscipit lacinia. Suspendisse euismod lectus vitae laoreet faucibus. Aenean eleifend malesuada urna, ac laoreet dolor suscipit ac. Proin pretium, erat vitae facilisis hendrerit, ligula est congue risus, quis mattis urna mi et nisl. Aliquam erat volutpat. Nam metus erat, tincidunt id velit a, posuere venenatis mi.
-
-Nullam malesuada purus massa, non hendrerit tortor blandit at. Donec vehicula tincidunt enim non ultrices. Maecenas molestie semper nisi id eleifend. Mauris iaculis nisl vitae diam ornare, ut pharetra nunc finibus. Sed sodales luctus tortor a eleifend. Pellentesque porta eu nibh quis placerat. Proin convallis urna laoreet mi pretium gravida. Maecenas non mi efficitur, facilisis lacus quis, pulvinar sapien.
-
-Curabitur rutrum libero quis libero posuere, eu sodales nunc tincidunt. Pellentesque auctor urna viverra quam rutrum porttitor. Vestibulum fermentum egestas ex finibus hendrerit. Donec maximus leo ac magna molestie fermentum. Integer quis tortor lectus. Phasellus porta, mauris eu pulvinar rutrum, justo lacus lacinia velit, eu sodales libero ex vitae metus. Pellentesque laoreet lectus elit, quis convallis mi aliquam vel. Ut nibh felis, porttitor id mauris et, vehicula mollis ligula. Nunc at consequat magna, nec imperdiet est. Quisque tempor pretium pretium. Nulla scelerisque pellentesque felis, eleifend porta sem tempor at. Aliquam et sollicitudin mauris. Integer venenatis libero semper, varius diam in, dictum tortor.
-
-Donec condimentum felis nunc, eget volutpat odio ultrices eget. Integer eu congue eros, quis eleifend eros. Aenean ac commodo neque, vitae vehicula augue. Integer vestibulum purus eu vestibulum suscipit. Donec eleifend imperdiet lorem quis laoreet. Duis lacinia sollicitudin nunc, eu cursus est vehicula id. Pellentesque ornare, mauris et tristique placerat, sem libero aliquam lorem, at porttitor purus sem et arcu. Ut iaculis metus eu nisi tempus, a gravida tellus pharetra. Curabitur turpis ipsum, auctor in augue eu, sagittis auctor libero. Interdum et malesuada fames ac ante ipsum primis in faucibus. Aliquam lorem risus, ornare in ligula et, convallis varius risus. In vehicula nibh non sem consectetur, eget lacinia nisi commodo. Sed auctor ex sit amet convallis lacinia. Vivamus ligula orci, interdum sed eros eu, maximus gravida nibh. Quisque pretium, diam sed bibendum tristique, turpis risus facilisis erat, a porttitor orci purus eu felis. Nulla pellentesque vestibulum elit accumsan vehicula.
-
-Proin commodo cursus egestas. Praesent vulputate tortor vel elit semper, sit amet euismod purus finibus. Fusce hendrerit lacinia felis. Curabitur a volutpat ligula. Praesent at nisl lorem. Sed in hendrerit purus. Nulla et tempor neque. Sed vehicula justo non odio vestibulum varius. Praesent pellentesque nulla urna, vel aliquam diam imperdiet id. Suspendisse id orci consequat velit eleifend egestas.
+Lorem 
 
 
 \section{Conclusions}
  
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec volutpat sapien mauris, id lacinia leo aliquet at. Etiam ut sollicitudin libero. Fusce dictum odio orci, et vehicula erat accumsan sit amet. Cras eu augue et magna pretium egestas. Interdum et malesuada fames ac ante ipsum primis in faucibus. Vivamus consectetur elit eget efficitur gravida. Vivamus leo mauris, scelerisque vel mi id, sodales vulputate urna. Vestibulum mattis orci vestibulum purus volutpat malesuada.
-
-Mauris luctus tortor a tortor molestie auctor. Morbi euismod, elit sed iaculis porttitor, nisl magna mattis nulla, sed aliquam quam eros id magna. Sed semper vestibulum odio, id ullamcorper lorem. Nam justo sem, tristique eget fermentum in, malesuada vitae magna. Cras a luctus tellus, at egestas elit. Praesent non blandit dolor. Vestibulum sed lacus nibh.
-
-Nam non lacus eleifend, tincidunt justo vitae, congue arcu. Nunc arcu ante, sollicitudin suscipit odio vitae, commodo fermentum purus. Ut nec venenatis mi, tempus rhoncus sem. Integer id tortor ut eros ultrices semper non non elit. Nunc eget mattis turpis. Pellentesque pulvinar semper molestie. Suspendisse aliquam hendrerit massa eget tempus. Nulla in diam et tellus rutrum fermentum sit amet quis mi.
-
+Lorem 
 
 \begin{acknowledgments}
 (OPTIONAL) The author would like to thank...
@@ -115,15 +265,7 @@ Nam non lacus eleifend, tincidunt justo vitae, congue arcu. Nunc arcu ante, soll
 \newpage
 
 \section*{Error Appendix}
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque rutrum cursus turpis ac gravida. Etiam eu eros placerat, varius nisi ac, vehicula ante. Curabitur placerat erat at justo porttitor convallis. Nunc eu felis at enim porta faucibus. Aliquam lobortis eu massa vel auctor. Pellentesque ullamcorper pulvinar nunc. Vivamus mollis enim ut nisi suscipit lacinia. Suspendisse euismod lectus vitae laoreet faucibus. Aenean eleifend malesuada urna, ac laoreet dolor suscipit ac. Proin pretium, erat vitae facilisis hendrerit, ligula est congue risus, quis mattis urna mi et nisl. Aliquam erat volutpat. Nam metus erat, tincidunt id velit a, posuere venenatis mi.
-
-Nullam malesuada purus massa, non hendrerit tortor blandit at. Donec vehicula tincidunt enim non ultrices. Maecenas molestie semper nisi id eleifend. Mauris iaculis nisl vitae diam ornare, ut pharetra nunc finibus. Sed sodales luctus tortor a eleifend. Pellentesque porta eu nibh quis placerat. Proin convallis urna laoreet mi pretium gravida. Maecenas non mi efficitur, facilisis lacus quis, pulvinar sapien.
-
-Curabitur rutrum libero quis libero posuere, eu sodales nunc tincidunt. Pellentesque auctor urna viverra quam rutrum porttitor. Vestibulum fermentum egestas ex finibus hendrerit. Donec maximus leo ac magna molestie fermentum. Integer quis tortor lectus. Phasellus porta, mauris eu pulvinar rutrum, justo lacus lacinia velit, eu sodales libero ex vitae metus. Pellentesque laoreet lectus elit, quis convallis mi aliquam vel. Ut nibh felis, porttitor id mauris et, vehicula mollis ligula. Nunc at consequat magna, nec imperdiet est. Quisque tempor pretium pretium. Nulla scelerisque pellentesque felis, eleifend porta sem tempor at. Aliquam et sollicitudin mauris. Integer venenatis libero semper, varius diam in, dictum tortor.
-
-Donec condimentum felis nunc, eget volutpat odio ultrices eget. Integer eu congue eros, quis eleifend eros. Aenean ac commodo neque, vitae vehicula augue. Integer vestibulum purus eu vestibulum suscipit. Donec eleifend imperdiet lorem quis laoreet. Duis lacinia sollicitudin nunc, eu cursus est vehicula id. Pellentesque ornare, mauris et tristique placerat, sem libero aliquam lorem, at porttitor purus sem et arcu. Ut iaculis metus eu nisi tempus, a gravida tellus pharetra. Curabitur turpis ipsum, auctor in augue eu, sagittis auctor libero. Interdum et malesuada fames ac ante ipsum primis in faucibus. Aliquam lorem risus, ornare in ligula et, convallis varius risus. In vehicula nibh non sem consectetur, eget lacinia nisi commodo. Sed auctor ex sit amet convallis lacinia. Vivamus ligula orci, interdum sed eros eu, maximus gravida nibh. Quisque pretium, diam sed bibendum tristique, turpis risus facilisis erat, a porttitor orci purus eu felis. Nulla pellentesque vestibulum elit accumsan vehicula.
-
-Proin commodo cursus egestas. Praesent vulputate tortor vel elit semper, sit amet euismod purus finibus. Fusce hendrerit lacinia felis. Curabitur a volutpat ligula. Praesent at nisl lorem. Sed in hendrerit purus. Nulla et tempor neque. Sed vehicula justo non odio vestibulum varius. Praesent pellentesque nulla urna, vel aliquam diam imperdiet id. Suspendisse id orci consequat velit eleifend egestas.
+Lorem 
 
 
 \clearpage
@@ -134,8 +276,6 @@ Proin commodo cursus egestas. Praesent vulputate tortor vel elit semper, sit ame
 
 
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Praesent lacus lectus, elementum sagittis eros in, molestie aliquam sapien. Curabitur viverra eros sed nulla mattis aliquet. Aliquam ullamcorper metus vitae feugiat vulputate. Aliquam sed ultrices ipsum, quis vulputate tellus. Quisque cursus nisl ac orci posuere, vitae posuere sem elementum. Fusce ultrices nibh arcu, sed malesuada orci ullamcorper a. Fusce id aliquet nisi. Mauris in mollis turpis. Ut vestibulum est erat, quis vulputate orci pretium eget. Fusce nec tincidunt lacus.
-
-Fusce aliquam ligula vitae nisl aliquam aliquet. Mauris pellentesque quam quis est porta, at imperdiet tellus ornare. Nam dapibus enim quam, et faucibus dolor egestas ut. Quisque eu sem maximus, faucibus lectus eu, sagittis ex. Etiam luctus, nulla ut pretium iaculis, magna augue lobortis metus, at blandit arcu mauris ac eros. Suspendisse justo libero, consequat aliquet porttitor a, suscipit non felis. Aliquam non auctor diam. Donec interdum metus a accumsan tempor. Phasellus commodo facilisis sem, vel finibus nisi. Vivamus est odio, sagittis nec ex ut, eleifend maximus velit. Phasellus in vehicula lectus. Proin ornare mauris ut pellentesque tempus.
+Lorem 
 
 \end{document}
