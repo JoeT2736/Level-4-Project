@@ -13,3 +13,4 @@ def velocity_update(distance, noise, neighbours, weight, force, time_update, vel
         return k
     
     return (1/neighbours) * (neighbour_weight(neighbours, weight, velocity_neighbour) + attraction_force(force, distance, noise, neighbours))        
+4
