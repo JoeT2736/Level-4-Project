@@ -303,8 +303,9 @@ def test(N = 20, T = 1000, R = 5, D = 20, eta = 0.1, stepsize = 1):
     for t in range(T-1):
         trajectory[:, t+1] = updateRule5(trajectory[:, t], stepsize=stepsize, eta=eta, R=R, D=D)
 
-        plt.figure(0)
-        PlotTrajectories(trajectory, D=D)
+
+        #plt.figure(0)
+        #PlotTrajectories(trajectory, D=D)
 
         #plt.figure(1)
         #PlotAgents(trajectory[:, 0], D=D)

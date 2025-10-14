@@ -1,63 +1,49 @@
-#Francesco Turci code (online)
-
-
 import numpy as np
-import scipy as sp
-from scipy import sparse
-from scipy.spatial import cKDTree
+import scipy
+import scipy.spatial
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
- 
- 
-L = 32.0
-rho = 3.0
-N = int(rho*L**2)
-print(" N",N)
- 
-r0 = 1.0
-deltat = 1.0
-factor =0.5
-v0 = r0/deltat*factor
-iterations = 10000
-eta = 0.15
- 
- 
-pos = np.random.uniform(0,L,size=(N,2))
-orient = np.random.uniform(-np.pi, np.pi,size=N)
- 
-fig, ax= plt.subplots(figsize=(6,6))
- 
-qv = ax.quiver(pos[:,0], pos[:,1], np.cos(orient[0]), np.sin(orient), orient, clim=[-np.pi, np.pi])
- 
-def animate(i):
-    #print(i)
- 
-    global orient
-    tree = cKDTree(pos,boxsize=[L,L])
-    dist = tree.sparse_distance_matrix(tree, max_distance=r0,output_type='coo_matrix')
- 
-    #important 3 lines: we evaluate a quantity for every column j
-    data = np.exp(orient[dist.col]*1j)
-    # construct  a new sparse marix with entries in the same places ij of the dist matrix
-    neigh = sparse.coo_matrix((data,(dist.row,dist.col)), shape=dist.get_shape())
-    # and sum along the columns (sum over j)
-    S = np.squeeze(np.asarray(neigh.tocsr().sum(axis=1)))
-     
-     
-    orient = np.angle(S)+eta*np.random.uniform(-np.pi, np.pi, size=N)
- 
- 
-    cos, sin= np.cos(orient), np.sin(orient)
-    pos[:,0] += cos*v0
-    pos[:,1] += sin*v0
- 
-    pos[pos>L] -= L
-    pos[pos<0] += L
- 
-    qv.set_offsets(pos)
-    qv.set_UVC(cos, sin,orient)
-    return qv,
- 
-anim = FuncAnimation(fig,animate,np.arange(1, 200),interval=1, blit=True)
+
+fig, ax = plt.subplots(figsize=(10, 10))
+
+
+#Setup matrix of all agents in simulation
+#N = number of agents
+#D = Size of the domain
+
+def InitialiseAgents(N, D=25):
+    state0 = np.zeros( shape=(N*3,))
+    state0[0::3] = np.random.rand(N,) * 2 * np.pi   #Every third element => agent angle
+    state0[1::3] = np.random.rand(N,) * D   #x-Direction
+    state0[2::3] = np.random.rand(N,) * D   #y-Direction
+    return state0
+
+
+#Create plot of all agents showing there position and direction of motion using an arrow
+'''
+def PlotAgents(statevector, D=25):
+    ax = plt.axes()
+    ax.set_xlim(0, D)
+    ax.set_ylim(0, D)
+    arcScale = D/250        # // = integer division
+    N = np.size(statevector) // 3 #Number of cells from size of statevector
+
+    for n in range(N):
+        theta, x, y = statevector[np.array([0, 1, 2]) + 3*n]   #Coordinates of n_th agent
+        ax.arrow(x, y, 5*arcScale*np.cos(theta), 5*arcScale*np.sin(theta), \
+                                                            head_width = 2*arcScale, head_length = arcScale, fc='k', ec='k')   #Arrow head
+        
+    #plt.show()
+    return ax
+'''
+
+from Vicsek_Try1 import updateRule5
+from Vicsek_Try1 import test
+
+anim = animation.FuncAnimation(fig = fig, func = test, interval = 30)
+
+anim.save(filename="C:\Users\joeti\Lvl 4 Project\Simulations\ffmpeg_test.mkv", writer="ffmpeg")
+
 plt.show()
 
