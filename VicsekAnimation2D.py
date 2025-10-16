@@ -115,7 +115,7 @@ def Animation(frame):
 
 anim = FuncAnimation(fig = fig, func = Animation, interval = 1,frames = T,)
 
-#anim.save("Update5_Animation.gif")
+anim.save("Update_Animation.gif")
 
-#test5()
+
 plt.show()
