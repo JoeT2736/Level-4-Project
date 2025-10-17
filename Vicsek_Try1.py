@@ -288,21 +288,24 @@ def updateRule5(present, stepsize = 1, eta = 0.1, D = 25, R = 1, v0 = 0.5):
     MeanNeighbourAngles = np.zeros(N, )
 
     #Matrix, each row = one agent (columns = x, y coordinates)
-    positions = np.zeros((N, 2))               # This might be the part to fix????
-    positions[:, 0] = present[1::3]             
-    positions[:, 1] = present[2::3]
-    angles = present[0::3]
+    positions = np.zeros((N, 2))               # <<<=== This might be the part to fix????  Maybe not actually???
+    positions[:, 0] = present[1::3] #x-position updated => first column of 'positions', second column of 'present'
+    positions[:, 1] = present[2::3] #y-position updated => second column of 'positions', third column of 'present'
+    angles = present[0::3] #seperate list updated => first column 'present'
 
     #Identify neighbours
     DistanceMatrix = scipy.spatial.distance.pdist(positions)
     DistanceMatrix = scipy.spatial.distance.squareform(DistanceMatrix)   #matrix of form [i, j] => distance between agents i and j
     Neighbours = DistanceMatrix <= R   #If distance between i and j less than R, update neighbour list
+    
+    #^^^^ Make it so "Neighbours" can only have a certain amount of elements in it (should be the closeset neighbours)
+    #Also should be only those that the agent can 'sense'
 
     for n in range(N):
         theta = angles[n]   #angle of agent
-        pos2 = positions[n, :]   #other agent position (to find the distance between two agents)
+        #pos2 = positions[n, :]   #other agent position (to find the distance between two agents)
 
-        selection = DistanceMatrix[:, n] < R   #selection vector - true when distance smaller than R
+        #selection = DistanceMatrix[:, n] < R   #selection vector - true when distance smaller than R
         MeanNeighbourAngles[n] = np.sum(angles[Neighbours[:, n]]) / np.sum(Neighbours[:, n])   #Mean neighbour angle
 
         v = v0 * np.array([np.cos(theta), np.sin(theta)])
@@ -356,10 +359,10 @@ for t in range(T-1):
 
 N=50
 D=25
-T=10000000000000000000
+T=100
 stepsize=0.5
 eta=0.15
-v0=1
+v0=0.5
 R=1
 
 fig, ax = plt.subplots()
@@ -377,14 +380,14 @@ def Animation(frame):
                                     # more data points to read off. Need to update "trajectory" or "updateRule5" so that its size can keep growing
                                     # alongside the animation.
  
-anim = animation.FuncAnimation(
+anim = FuncAnimation(
     fig = fig, 
     func = Animation, 
     interval = 1,
     frames = T,
     )
 
-#anim.save(filename="C:\\Users\\joeti\\Lvl 4 Project\\Simulations.mkv", writer="ffmpeg")
+#anim.save("Update5_Animation.gif")
 
 #test5()
 plt.show()

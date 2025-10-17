@@ -7,7 +7,7 @@ from matplotlib.animation import FuncAnimation
 
 N=50
 D=25
-T=100
+T=6000
 stepsize=1
 eta=0.1
 v0=0.5
@@ -53,11 +53,13 @@ def initialiseAgents(N, D):
 
 def updateRule(present, stepsize, eta, D, R, v0):
     future = present
-    N = np.size(present) // 3
-    MeanNeighbourAngles = np.zeros(N, )
+    N = np.size(present) // 3   
+    MeanNeighbourAngles = np.zeros(N, )   #Gives array of the length of the total number of elements in "present"/state0 divided by 3 (3 because state0 
+    #has x, y, and angle in it) 
 
     #Matrix, each row = one agent (columns = x, y coordinates)
-    positions = np.zeros((N, 2))               # <<<=== This might be the part to fix????  Maybe not actually???
+    positions = np.zeros((N, 2))               # <<<=== This might be the part to fix????         Maybe not actually???
+            # vvvv => all of the 0th column gets changed
     positions[:, 0] = present[1::3] #x-position updated => first column of 'positions', second column of 'present'
     positions[:, 1] = present[2::3] #y-position updated => second column of 'positions', third column of 'present'
     angles = present[0::3] #seperate list updated => first column 'present'
@@ -70,7 +72,7 @@ def updateRule(present, stepsize, eta, D, R, v0):
     #^^^^ Make it so "Neighbours" can only have a certain amount of elements in it (should be the closeset neighbours)
     #Also should be only those that the agent can 'sense'
 
-    for n in range(N):
+    for n in range(N):  
         theta = angles[n]   #angle of agent
         
         MeanNeighbourAngles[n] = np.sum(angles[Neighbours[:, n]]) / np.sum(Neighbours[:, n])   #Mean neighbour angle
@@ -85,8 +87,10 @@ def updateRule(present, stepsize, eta, D, R, v0):
     return(future)
 
 
-state0 = initialiseAgents(N, D=D)
-trajectory = np.zeros(shape = (N*3, T))  #N*3 columns, T rows
+
+
+state0 = initialiseAgents(N, D=D)                                  # vvvvv same with this??
+trajectory = np.zeros(shape = (N*3, T))  #N*3 columns, T rows      Change so trajecory can be continuosly updated / size can keep increasing??
 trajectory[:, 0] = state0   #: means every column, 0th row
 
 for t in range(T-1):
@@ -101,13 +105,13 @@ ax.set_ylim([0, 25])
 animated_plot, = ax.plot([], [], 'o')
 
 def Animation(frame):
-                                                # vvvvvvvv => everything after 'frame'
+                                               # vvvvvvvv => for every column, each row is updated by 'frame'
     animated_plot.set_data(updateRule(trajectory[:, frame], stepsize=stepsize, eta=eta, R=R, D=D, v0 = v0)[1::3], 
                            updateRule(trajectory[:, frame], stepsize=stepsize, eta=eta, R=R, D=D, v0 = v0)[2::3])
 
     return 
                                     # ^^^^^^^^^ problem, trajecotry only has 100 elements limit, when animation reaches the 101st "frame" there is no
-                                    # more data points to read off. Need to update "trajectory" or "updateRule5" so that its size can keep growing
+                                    # more data points to read off. Need to update "trajectory" or "updateRule" so that its size can keep growing
                                     # alongside the animation.
  
 
