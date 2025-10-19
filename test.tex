@@ -52,7 +52,7 @@ Lorem
 
 \thispagestyle{plain} % produces page number for front page
 
-
+Week 1
 \section{Notes}
 
 \subsection{Collective motion in biological systems}
@@ -78,7 +78,7 @@ Units that can be reached by neighbouring units belong to same cluster. Behaviou
 Force mapping technique - infer interaction rules from experimental data. (GPS tracking of individuals within a flock).
 
 \subsubsection{Vicsek Model}
-Self-propelled particles at constant speed, choose at discrete time steps their new direction to be an average of that of their neighbours located within unit distance. Allingment rule competes with perturbations from noise term. This noise in the communication among individuals drives a phase transition.
+Self-propelled particles at constant speed, choose at discrete time steps their new direction to be an average of that of their neighbours located within unit distance. Alignment rule competes with perturbations from noise term. This noise in the communication among individuals drives a phase transition.
 
 \subsubsection{Gregoire}
 Extra attraction-repulsion term in above model, so as to prevent the dissolving of flocks in open space.
@@ -225,6 +225,45 @@ Model used is a transport related nonequilibrium analogue of the ferromagnetic t
 Ferromagnetic interaction aligning spins $\rightarrow$ aligning direction of motion of particles (random perturbation analogy with temperature.)
 
 
+\section{Week 2}
+
+\subsection{Gregoire et al (2003)}
+
+Vicsek model accounts well (at a qualitative level) when the organisms interact at short distances but do not have to stay together. Super-diffusive behaviour of bacteria (E. Coli [Wu, Libchaber (2000)]) swimming freely in a fluid film about as thick as the size of the bacteria. To model the the overall cohesion of a population, Vicsek's model must be adapted. In open space a flock that is, at first cohesive, will tend to disperse. (no CM possible in the zero-density limit). 
+
+Gregoire model:
+No Leader, Strongly  noisy, strictly local interactions, no confinement.
+Other works that tried to adapt the Vicsek with repulsive-attractive interactions tended to do so while also including a 'flock-wide' or 'global' interaction term.
+
+Adding a Lennard-Jones-type body $\vec{f}$ force acting between all pairs of agents within neighbour distance. To calculate the new direction of motion of each agent while including this force, the Vicsek equation becomes
+\begin{equation}
+    \theta_i^{t+1} = \arg \left[ \alpha \sum_{j \sim i} \vec{v}_j^t + \beta \sum_{j \sim i} \vec{f}_{ij} \right] + \eta \xi_i^t,
+    \label{eq:sample_equation}
+\end{equation}
+where $\alpha$ and $\beta$ are the relative strength of the two 'forces'. $\vec{v}_j^t$ is the velocity vector of magnitude $\vec{v}_0$ along direction $\theta_i$ and $\xi_i^t$ is a delta-correlated white noise ($\xi$ $\in$ [-$\pi$, $\pi$]). $\eta$ is the noise strength. 
+
+The precise form of the body force is not important, ensuring hard-core repulsion at a distance $r_c$ and equilibrium at distance $r_e$ is enough.
+
+% Requires: \usepackage{amsmath}
+\begin{equation}
+    \vec{f}_{ij} = \vec{e}_{ij} 
+    \begin{cases} 
+        -\infty & \text{if } r_{ij} < r_c, \\
+        \frac{1}{4} \frac{r_{ij} - r_e}{r_a - r_e} & \text{if } r_c < r_{ij} < r_a, \\
+        1 & \text{if } r_a < r_{ij} < r_0
+    \end{cases}
+\end{equation}
+
+$r_{ij}$ is the distance between two agents, $\vec{e}_{ij}$ is the unit vector along segment going from i to j.
+
+Other forms of the noise term where also tested; the uncertainty of each agent to 'feel the force' exerted on it would change the noise term of the original equation to $N_i \eta \vec{u}_i^t$. Here $N_i$ is the number of neighbouring agents and $\vec{u}_i^t$ is a randomly orientated unit vector. 
+
+The choice of using a particular noise term relates to how the agents transition to collective motion. Gregoire considered the latter noise term above. To ensure that each agent interacts only with the 'first layer' of neighbours, Gregoire calculated the Voronoi tessellation of the population at every time step. The interacting neighbours are then only those within distance $r_0$ which are also neighbours in the Voronoi sense. 
+
+If body force is weak (small $\beta$) a cohesive flock cannot be maintained. Isolated agents (randomly-walking) are found for an arbitrarily large flock in an infinite space. The shape of the cohesive flock is also dependent on the value of $\beta$ ('moving droplets' and 'flying crystals')
+
+
+
 
 
 
@@ -251,13 +290,25 @@ Lorem
  
 Lorem 
 
-\begin{acknowledgments}
-(OPTIONAL) The author would like to thank...
-\end{acknowledgments}
 
 \begin{thebibliography}{}
 
 \bibitem{ref01} A. N. Other, Title of the Book, edition, publishers, place of publication (year of publication), p. 123.   % example reference 
+\cite{@article{PhysRevLett.75.1226,
+  title = {Novel Type of Phase Transition in a System of Self-Driven Particles},
+  author = {Vicsek, Tam\'as and Czir\'ok, Andr\'as and Ben-Jacob, Eshel and Cohen, Inon and Shochet, Ofer},
+  journal = {Phys. Rev. Lett.},
+  volume = {75},
+  issue = {6},
+  pages = {1226--1229},
+  numpages = {0},
+  year = {1995},
+  month = {Aug},
+  publisher = {American Physical Society},
+  doi = {10.1103/PhysRevLett.75.1226},
+  url = {https://link.aps.org/doi/10.1103/PhysRevLett.75.1226}
+}
+}
 
 
 \end{thebibliography} 
