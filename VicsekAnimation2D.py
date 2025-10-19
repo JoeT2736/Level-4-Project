@@ -5,13 +5,14 @@ import scipy.spatial
 import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
 
-N=50
-D=25
+N=300
+D=7
 T=6000
 stepsize=1
 eta=0.1
-v0=0.5
+v0=0.03
 R=1
+arcScale=D/250
 
 
 
@@ -51,6 +52,7 @@ def initialiseAgents(N, D):
 #v0 = starting velocity (speed is constant in vicsek model)
 
 
+
 def updateRule(present, stepsize, eta, D, R, v0):
     future = present
     N = np.size(present) // 3   
@@ -75,15 +77,17 @@ def updateRule(present, stepsize, eta, D, R, v0):
     for n in range(N):  
         theta = angles[n]   #angle of agent
         
+        #vvv wrong calculation
         MeanNeighbourAngles[n] = np.sum(angles[Neighbours[:, n]]) / np.sum(Neighbours[:, n])   #Mean neighbour angle
+        #MeanNeighbourAngles[n] = np.arctan(np.sin(angles[Neighbours[:, n]].astype(int)) / np.cos(angles[Neighbours[:, n]].astype(int))).astype(int)
 
         v = v0 * np.array([np.cos(theta), np.sin(theta)])  #Velocity change after new direction calculated
         future[np.array([1, 2]) + 3*n] = present[np.array([1, 2]) + 3*n] + stepsize * v  #New x and y positions after update
         future[np.array([1, 2]) + 3*n] = np.mod(future[np.array([1, 2]) + 3*n], D)  #If agent goes off axis, it reappears on the other side
 
-    noise = (-eta/2 + np.random.rand(N, ) * eta/2)
+    noise = (np.random.rand(N, ) * eta/2)
     future[0::3] = np.mod(present[0::3] + MeanNeighbourAngles + noise, 2*np.pi)  
-   #after 0th element, but before the third element (i.e. the first and second elements)
+    #after 0th element, but before the third element (i.e. the first and second elements)
     return(future)
 
 
@@ -99,15 +103,20 @@ for t in range(T-1):
 
 
 fig, ax = plt.subplots()
-ax.set_xlim([0, 25])
-ax.set_ylim([0, 25])
+ax.set_xlim([0, D])
+ax.set_ylim([0, D])
 
 animated_plot, = ax.plot([], [], 'o')
+#animated_plot, = ax.quiver([[], []], [], [])
+
+
+#ax.arrow(x, y, 5*arcScale*np.cos(theta), 5*arcScale*np.sin(theta), \
+#                                                             head_width = 2*arcScale, head_length = arcScale, fc='k', ec='k')
 
 def Animation(frame):
                                                # vvvvvvvv => for every column, each row is updated by 'frame'
-    animated_plot.set_data(updateRule(trajectory[:, frame], stepsize=stepsize, eta=eta, R=R, D=D, v0 = v0)[1::3], 
-                           updateRule(trajectory[:, frame], stepsize=stepsize, eta=eta, R=R, D=D, v0 = v0)[2::3])
+    animated_plot.set_data([updateRule(trajectory[:, frame], stepsize=stepsize, eta=eta, R=R, D=D, v0 = v0)[1::3], 
+                           updateRule(trajectory[:, frame], stepsize=stepsize, eta=eta, R=R, D=D, v0 = v0)[2::3]])
 
     return 
                                     # ^^^^^^^^^ problem, trajecotry only has 100 elements limit, when animation reaches the 101st "frame" there is no
