@@ -16,15 +16,18 @@ R=3
 M=3 #Max amount of neighbours
 
 
-fig, ax = plt.subplots(figsize=(6, 6))
+fig, ax = plt.subplots(figsize=(8, 8))
 
 
-StartPositions = np.random.rand(N, 2) * D
-StaringDirection = np.random.rand(N) * 2 * np.pi
+StartPositions = np.random.uniform(0, D, size=(N, 2))
+StaringDirection = np.random.uniform(-np.pi, np.pi, size=N)
+
+quiver = ax.quiver(StartPositions[:, 0], StartPositions[:, 1], np.cos(StaringDirection[0], np.sin(StaringDirection)))
+
+
 
 tree = scipy.spatial.KDTree(StartPositions, boxsize=[D, D])
 distance = tree.sparse_distance_matrix(tree, max_distance=R, output_type='coo_matrix')
-dist = tree.query_ball_point(StartPositions, r=R)
 
 
 data = (StaringDirection[distance.col])  #column index format of direction of nearest neighbours
@@ -34,8 +37,8 @@ n = scipy.sparse.coo_matrix ((data, (distance.row, distance.col)),
 s = np.squeeze(np.asarray(n.tocsr().sum(axis=1)))
 
 
-print(dist)
-print(distance)
+print(s)
+
 
 
 #print(data)
@@ -45,6 +48,8 @@ print(distance)
 
 
 def UpdateRule():
+
+    global StaringDirection
 
     #Create KDTree 
     tree = scipy.spatial.KDTree(StartPositions, boxsize=[D, D])
@@ -62,7 +67,26 @@ def UpdateRule():
     data = StaringDirection[distance.col]  
 
     #Takeout direction of neighbours with value 0 in coo_matrix ('distance')
-    #neighbours = 
+    neighbours = scipy.sparse.coo_matrix ((data, (distance.row, distance.col)),
+                             shape = distance.get_shape())
+    
+    sum = np.squeeze(np.asarray(neighbours.tocsr().sum(axis=1)))
+
+    
+    angle = sum + eta*np.ranom.uniform(-np.pi, np.pi, size=N)
+
+    StartPositions[:, 0] += np.cos(angle) * v0
+    StartPositions[:, 1] += np.sin(angle) * v0
+
+    quiver.set_offsets(StartPositions)
+    quiver.set_UVC(np.cos(angle), np.sin(angle), angle)
+
+    return quiver,
+
+anim = FuncAnimation(fig, UpdateRule, np.arange(1, 200), interval=1, blit=True)
+plt.show()
+
+
 
 
 
