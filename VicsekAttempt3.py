@@ -18,7 +18,7 @@ def Vicsek():
     eta=0.1   #Random noise added to angles
     v0=0.03    #Starting velocity
     R=1    #Interaction radius
-    plotRealTime = True
+    
 
 
     #np.random.seed(4)
@@ -62,7 +62,7 @@ def Vicsek():
         vx = v0 * np.cos(angle)
         vy = v0 * np.sin(angle)
 
-        if plotRealTime or (i == T - 1):
+        if True:
             plt.cla()
             plt.quiver(x, y, vx, vy, angle)
             ax.set(xlim=(0, D), ylim=(0, D))

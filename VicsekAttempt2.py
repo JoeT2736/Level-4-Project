@@ -25,7 +25,7 @@ StaringDirection = np.random.uniform(-np.pi, np.pi, size=N)
 quiver = ax.quiver(StartPositions[:, 0], StartPositions[:, 1], np.cos(StaringDirection[0], np.sin(StaringDirection)))
 
 
-
+'''
 tree = scipy.spatial.KDTree(StartPositions, boxsize=[D, D])
 distance = tree.sparse_distance_matrix(tree, max_distance=R, output_type='coo_matrix')
 
@@ -38,7 +38,7 @@ s = np.squeeze(np.asarray(n.tocsr().sum(axis=1)))
 
 
 print(s)
-
+'''
 
 
 #print(data)
@@ -64,7 +64,7 @@ def UpdateRule():
     distance = tree.sparse_distance_matrix(tree, max_distance=R, output_type='coo_matrix')
 
     #column index format of direction of nearest neighbours
-    data = StaringDirection[distance.col]  
+    data = StaringDirection[distance.col]
 
     #Takeout direction of neighbours with value 0 in coo_matrix ('distance')
     neighbours = scipy.sparse.coo_matrix ((data, (distance.row, distance.col)),
@@ -83,7 +83,7 @@ def UpdateRule():
 
     return quiver,
 
-anim = FuncAnimation(fig, UpdateRule, np.arange(1, 200), interval=1, blit=True)
+anim = FuncAnimation(fig, UpdateRule, np.arange(1, T), interval=1, blit=True)
 plt.show()
 
 
@@ -106,7 +106,7 @@ def SpawnAgents(NumberOfAgents, AreaOfDomain):
 
 
 
-
+'''
 def Update_x(NumberOfAgents, AreaOfDomain, StepSize, Noise,
               RadiusOfInteraction, InitialVelocity, Initial,
               NumberOfNeighbours):
@@ -142,7 +142,7 @@ def Update_x(NumberOfAgents, AreaOfDomain, StepSize, Noise,
 
     Future = (Future_x, Future_y, Future_angle)
     return(Future)
-
+'''
 
 #print(Update_x(N, D, stepsize, eta, R, v0, SpawnAgents(N, D)))
 

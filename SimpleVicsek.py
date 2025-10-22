@@ -44,7 +44,7 @@ from Vicsek_Try1 import test5
 
 anim = animation.FuncAnimation(fig = fig, func = test5(N = 20, T = 1000, R = 3, D = 25, eta = 0.1, stepsize = 1), interval = 30)
 
-anim.save(filename="C:\\Users\\joeti\\Lvl 4 Project\\Simulations.mkv", writer="ffmpeg")
+anim.save("")
 
 plt.show()
 

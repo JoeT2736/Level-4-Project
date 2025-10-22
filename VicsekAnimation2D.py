@@ -7,7 +7,7 @@ from matplotlib.animation import FuncAnimation
 
 N=300
 D=7
-T=6000
+T=600
 stepsize=1
 eta=0.1
 v0=0.03
@@ -79,7 +79,13 @@ def updateRule(present, stepsize, eta, D, R, v0):
         
         #vvv wrong calculation
         MeanNeighbourAngles[n] = np.sum(angles[Neighbours[:, n]]) / np.sum(Neighbours[:, n])   #Mean neighbour angle
-        #MeanNeighbourAngles[n] = np.arctan(np.sin(angles[Neighbours[:, n]].astype(int)) / np.cos(angles[Neighbours[:, n]].astype(int))).astype(int)
+
+        #MeanNeighbourAngles[n] = np.arctan(np.sin(angles[Neighbours[:, n]]) / np.cos(angles[Neighbours[:, n]]))
+
+        sx = np.sum(np.cos(angles[Neighbours[:, n]]))
+        sy = np.sum(np.cos(angles[Neighbours[:, n]]))
+
+        MeanNeighbourAngles[n] = np.arctan2(sy, sx)
 
         v = v0 * np.array([np.cos(theta), np.sin(theta)])  #Velocity change after new direction calculated
         future[np.array([1, 2]) + 3*n] = present[np.array([1, 2]) + 3*n] + stepsize * v  #New x and y positions after update
