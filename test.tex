@@ -256,9 +256,9 @@ The precise form of the body force is not important, ensuring hard-core repulsio
 
 $r_{ij}$ is the distance between two agents, $\vec{e}_{ij}$ is the unit vector along segment going from i to j.
 
-Other forms of the noise term where also tested; the uncertainty of each agent to 'feel the force' exerted on it would change the noise term of the original equation to $N_i \eta \vec{u}_i^t$. Here $N_i$ is the number of neighbouring agents and $\vec{u}_i^t$ is a randomly orientated unit vector. 
+Other forms of the noise term were also tested; the uncertainty of each agent to 'feel the force' exerted on it would change the noise term of the original equation to $N_i \eta \vec{u}_i^t$. Here $N_i$ is the number of neighbouring agents and $\vec{u}_i^t$ is a randomly orientated unit vector. 
 
-The choice of using a particular noise term relates to how the agents transition to collective motion. Gregoire considered the latter noise term above. To ensure that each agent interacts only with the 'first layer' of neighbours, Gregoire calculated the Voronoi tessellation of the population at every time step. The interacting neighbours are then only those within distance $r_0$ which are also neighbours in the Voronoi sense. 
+The choice of using a particular noise term relates to how the agents transition to collective motion. Gregoire considered the latter noise term above. To ensure that each agent interacts only with the 'first layer' of neighbours, Gregoire calculated the Voronoi tessellation (splits the domain into many cells, where each cell holds a portion of the population) of the population at every time step. The interacting neighbours are then only those within distance $r_0$ which are also neighbours in the Voronoi sense. 
 
 If body force is weak (small $\beta$) a cohesive flock cannot be maintained. Isolated agents (randomly-walking) are found for an arbitrarily large flock in an infinite space. The shape of the cohesive flock is also dependent on the value of $\beta$ ('moving droplets' and 'flying crystals')
 
@@ -275,7 +275,7 @@ Brownian motion - random motion of particles suspended in a fluid, is seen after
 
 Starling flocks were modelled to be relatively thin, of various sizes but of constant proportions. They slide parallel to the ground and when they are turning their orientation changed w.r.t direction of motion. Based on individual birds' wingspan, they would keep a minimum distance to each other. The birds towards the edge of the pack tend to be packed closer together than those in the centre. 
 
-Local interactions between units without the need for centralised coordination. The tendency of each agent to imitate its neighbours (allelomimesis).
+Local interactions between units without the need for centralised coordination. The tendency of each agent to imitate its neighbours (allelomimesis). The interactions depend on their topological distance instead instead of their metric distance (if they are the 1st, 2nd, 3rd, etc nearest neighbours, not if they are only close enough).
 
 Flocks were found to be thin when viewed in 3D. When looking at the ratios of the other two dimensions to the flocks thickness, they were found to be stable and showed little dependence on the number of birds or the volume. Though, the thickness of the flock was found to be highly variable, therfore the thickness must be linearly correlated to $V^{1/3}$. Even though the volume of the flock and number of birds changed, the proportions remained roughly constant. It was also found that the plane the flock's were flying in were parallel to the ground, and the velocity perpendicular to both of these. Found to not elongate in the direction of motion. The orientation changes with respect to the velocity, though roughly constant w.r.t an absolute reference frame.
 
@@ -290,12 +290,21 @@ Nonspherical shapes in fish schools (Cullen et al. 1965, Partridge et al. 1983) 
 
 Each agent interacts with a fixed number of neighbours irrespective of their distance, creating a more stable/robust structure. => During an attack, topological interactions give rise to less stragglers. (Ballerini et al 2008)
 
-Distribution of neighbours to a given strongly agent is anisotropic, they are located far more to the side than the in the direction of motion => interactions have a topological nature. The density of the flock is not dependent on the number of interacting neighbours, though there metric distance does. When the mean nearest neighbour is further away, the metric radius of interaction increases. => Birds in a flock will always interact with the same number of neighbours, disregarding their distance. ($7\+_-1.5$). Interaction range smaller than the range influence.
+Distribution of neighbours to a given strongly agent is anisotropic, they are located far more to the side than the in the direction of motion => interactions have a topological nature. The density of the flock is not dependent on the number of interacting neighbours, though there metric distance does. When the mean nearest neighbour is further away, the metric radius of interaction increases. => Birds in a flock will always interact with the same number of neighbours, disregarding their distance. ($7\pm1.5$). Interaction range smaller than the range influence.
 
 section 2.2 
 
 
 
+
+
+
+
+
+cis help register
+register for hpc - fill in form - level 4 project - wrathmall - 
+
+for first term - one system works good - model specific for that system - 
 
 
 
