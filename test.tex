@@ -15,6 +15,7 @@
 
 \usepackage{etoolbox}                       % Customise date to preferred format
 
+
 \makeatletter
 \patchcmd{\frontmatter@RRAP@format}{(}{}{}{}
 \patchcmd{\frontmatter@RRAP@format}{)}{}{}{}
@@ -77,19 +78,19 @@ Units that can be reached by neighbouring units belong to same cluster. Behaviou
 
 Force mapping technique - infer interaction rules from experimental data. (GPS tracking of individuals within a flock).
 
-\subsubsection{Vicsek Model}
+\subsubsection{Vicsek Model} \cite{Vicsek1995}
 Self-propelled particles at constant speed, choose at discrete time steps their new direction to be an average of that of their neighbours located within unit distance. Alignment rule competes with perturbations from noise term. This noise in the communication among individuals drives a phase transition.
 
-\subsubsection{Gregoire}
+\subsubsection{Gregoire} \cite{GREGOIRE2003}
 Extra attraction-repulsion term in above model, so as to prevent the dissolving of flocks in open space.
 
-\subsubsection{Ballerini}
+\subsubsection{Ballerini} \cite{BALLERINI2008}
 Starling flocks - individuals interact mostly with neighbours determined by topological rules and not metric criteria.
 
-\subsubsection{Camperi} 
+\subsubsection{Camperi} \cite{Camperi2012}
 Topological models much more stable against noise and external perturbations than metric.
 
-\subsubsection{Couzin}
+\subsubsection{Couzin} \cite{Couzin2005}
 change in radius of orientation - sudden transitions at school level in terms of collective behaviours. 
 
 \subsubsection{Hemelrijk \& Hildenbrandt}
@@ -313,51 +314,33 @@ for first term - one system works good - model specific for that system -
 \section{Introduction} 
 
 %%% example text follows %%%
-Lorem 
+ 
 
 \section{Methods} 
 
-Lorem 
+
  
 \section{Results} 
 
-Lorem 
+
 \section{Discussion} 
 
-Lorem 
+ 
 
 
 \section{Conclusions}
  
-Lorem 
 
 
-\begin{thebibliography}{}
 
-\bibitem{ref01} A. N. Other, Title of the Book, edition, publishers, place of publication (year of publication), p. 123.   % example reference 
-\cite{@article{PhysRevLett.75.1226,
-  title = {Novel Type of Phase Transition in a System of Self-Driven Particles},
-  author = {Vicsek, Tam\'as and Czir\'ok, Andr\'as and Ben-Jacob, Eshel and Cohen, Inon and Shochet, Ofer},
-  journal = {Phys. Rev. Lett.},
-  volume = {75},
-  issue = {6},
-  pages = {1226--1229},
-  numpages = {0},
-  year = {1995},
-  month = {Aug},
-  publisher = {American Physical Society},
-  doi = {10.1103/PhysRevLett.75.1226},
-  url = {https://link.aps.org/doi/10.1103/PhysRevLett.75.1226}
-}
-}
+\bibliographystyle{ieeetr}
+\bibliography{References.bib}
 
-
-\end{thebibliography} 
 
 \newpage
 
 \section*{Error Appendix}
-Lorem 
+
 
 
 \clearpage
