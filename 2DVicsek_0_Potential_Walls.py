@@ -5,6 +5,20 @@ import scipy.spatial
 
 #For infinite potential wall version -> if agent within some range of a wall, add some angle to its direction at each time step.
 
+#Comments for slides
+#Aoki  1982 -> Approach, avoidance, parallel orientation. Velocity and Direction are calculated at each time step depending on probability distributions. gamma distribution for velocity, normal dist for direction. 
+#Velocity calculated independently of other fish. Direction is weighted as the ith fish will move more closely in the direction of the jth that is most inline with itself, and is within its interaction radius. If fish
+#get too close, the jth fish turns +- 90 degrees depending on which new heading is closer to that of the ith fish. If no fish can be seen, then the new direciton is randomly decided with unifrom probability.
+
+#Huth & Wissel 1992
+#Same basic assumptions as Aoki and mostly the same model -> If no fish seen, then it turns around with a probability distribution.
+
+#Reuter 1994
+#Same assumptions as those above
+#Calculates direction based on all vsible fish, weighted according to the reciprocal of their distance -> obtaining weight factors for all neighbours
+#If fish get too close, an angle of +-36 is added to the direction of the neighbour fish depending on which turning angle is smaller
+#changes to speed and direction are associated with a normal distrbution 'noise' aspect, with standard deviation, 5deg and 1 length unit per time step.
+
 plt.rcParams["font.family"] = "Times New Roman"
 
 N=40  #Number of agents
