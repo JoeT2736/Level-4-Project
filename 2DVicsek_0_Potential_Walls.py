@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import scipy.spatial
 
+#For infinite potential wall version -> if agent within some range of a wall, add some angle to its direction at each time step.
+
 plt.rcParams["font.family"] = "Times New Roman"
 
 N=40  #Number of agents
