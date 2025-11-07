@@ -5,19 +5,6 @@ import scipy.spatial
 
 #For infinite potential wall version -> if agent within some range of a wall, add some angle to its direction at each time step.
 
-#Comments for slides
-#Aoki  1982 -> Approach, avoidance, parallel orientation. Velocity and Direction are calculated at each time step depending on probability distributions. gamma distribution for velocity, normal dist for direction. 
-#Velocity calculated independently of other fish. Direction is weighted as the ith fish will move more closely in the direction of the jth that is most inline with itself, and is within its interaction radius. If fish
-#get too close, the jth fish turns +- 90 degrees depending on which new heading is closer to that of the ith fish. If no fish can be seen, then the new direciton is randomly decided with unifrom probability.
-
-#Huth & Wissel 1992
-#Same basic assumptions as Aoki and mostly the same model -> If no fish seen, then it turns around with a probability distribution.
-
-#Reuter 1994
-#Same assumptions as those above
-#Calculates direction based on all vsible fish, weighted according to the reciprocal of their distance -> obtaining weight factors for all neighbours
-#If fish get too close, an angle of +-36 is added to the direction of the neighbour fish depending on which turning angle is smaller
-#changes to speed and direction are associated with a normal distrbution 'noise' aspect, with standard deviation, 5deg and 1 length unit per time step.
 
 plt.rcParams["font.family"] = "Times New Roman"
 
@@ -43,6 +30,8 @@ def Vicsek():
 
     MeanAngle = np.zeros(N, )
     noise = np.random.uniform(-eta/2, eta/2, size=(N))
+    repel_angle=np.full(shape=(N,), fill_value=np.pi/12)
+    r=np.zeros(N,)
 
     for i in range(N):
 
@@ -51,16 +40,18 @@ def Vicsek():
         #returns the distance of each agent to all other agents, the array is of size [N, N]
 
         Neighbours = DistanceMatrix <= R #Gives array of True/False, if distance less than R, this returns True
+        repel = np.logical_and(DistanceMatrix <= R/5, DistanceMatrix > 0)
 
-        MeanAngle[i] = (np.arctan2(np.sum(np.sin(angle[Neighbours[:, i]])), np.sum(np.cos(angle[Neighbours[:, i]]))))
+        r[i] = np.sum(repel_angle[repel[:, i]])     #should + or - depending on which gives a closer new angle to that of the neighbour
+
+        MeanAngle[i] = (np.arctan2(np.sum(np.sin(angle[Neighbours[:, i]])), np.sum(np.cos(angle[Neighbours[:, i]])))) + r[i]
                                                         #^^^^^Angles of the agents within R, the True values in 'Neighbours'
         #Equation as in Vicsek 1995 to get the average angle of all the neighbours
 
     MeanAngle = MeanAngle + noise   #Adding random noise element to the angle
-        #MeanAngle = np.mod(MeanAngle, 2*np.pi)
+    
 
-
-        #x and y directions accoring to new angle
+    #x and y directions accoring to new angle
     cos = (np.cos(MeanAngle))   
     sin = (np.sin(MeanAngle))
 
@@ -70,106 +61,10 @@ def Vicsek():
 
     pos = np.mod(pos, D)    #Agent appears on other side of domain when goes off one end
 
-    #frame = []
-    #frame += 1
-    #print(frame)
-    
-    #Polarisation = np.zeros(T)
-    #for k in range(T):
-        #Polarisation = np.zeros(N)
-    #Polarisation[k] = abs(np.sum(MeanAngle/abs(MeanAngle)))/N
-    
-    #p = Polarisation
 
+    return pos, cos, sin, MeanAngle, r
 
-    return pos, cos, sin, MeanAngle#, p
-
-
-
-
-
-
-#Use for polarisation eqs           Works but gives weird plot due to boundary conditions????
-#If set starting angles in smaller range, better plot
-def Vicsek_pol():
-    #print(i)
-    #global pos
-    #global angle
-
-    polarisation = np.zeros(T)
-
-    for j in range(T):
-
-        pos = np.random.uniform(0, D, size=(N, 2))
-        angle = np.random.uniform(0, 2*np.pi, size=N)
-
-        MeanAngle = np.zeros(N, )
-        noise = np.random.uniform(-eta/2, eta/2, size=(N))
-
-        for i in range(N):
-
-            DistanceMatrix = scipy.spatial.distance.pdist(pos)  #Scipy function to calculate distance between two agents
-            DistanceMatrix = scipy.spatial.distance.squareform(DistanceMatrix)   #matrix of form [i, j] => distance between agents i and j
-        #returns the distance of each agent to all other agents, the array is of size [N, N]
-
-            Neighbours = DistanceMatrix <= R #Gives array of True/False, if distance less than R, this returns True
-
-            MeanAngle[i] = (np.arctan2(np.sum(np.sin(angle[Neighbours[:, i]])), np.sum(np.cos(angle[Neighbours[:, i]]))))
-                                                        #^^^^^Angles of the agents within R, the True values in 'Neighbours'
-        #Equation as in Vicsek 1995 to get the average angle of all the neighbours
-
-        MeanAngle = MeanAngle + noise   #Adding random noise element to the angle
-        #MeanAngle = np.mod(MeanAngle, 2*np.pi)
-
-
-        #x and y directions accoring to new angle
-        cos = (np.cos(MeanAngle))   
-        sin = (np.sin(MeanAngle))
-
-        #Updating the position of the agents 
-        pos[:, 0] += cos * v0 * stepsize
-        pos[:, 1] += sin * v0 * stepsize
-
-        pos = np.mod(pos, D)    #Agent appears on other side of domain when goes off one end
-
-        polarisation[j] = abs(np.sum((MeanAngle)/abs(MeanAngle))) / (N)
-
-    return pos, cos, sin, MeanAngle, polarisation, abs(np.sum(MeanAngle))
-
-
-print(Vicsek_pol()[4])
-
-#print(Vicsek_pol()[4])
-
-
-
-### Polarisation plot ###
-
-#Polarisatio = Vicsek()[4]
-#for i in range(T):
-#    Polarisation[i] = np.sum((Vicsek()[3]/abs(Vicsek()[3])))/(N)
-    #Polarisation[i] = Vicsek()[3]
-
-time = np.linspace(0, T, T)
-
-#print(Polarisation)
-
-fig, ax = plt.subplots(figsize=(7, 7))
-ax.plot(time, Vicsek_pol()[4])
-ax.set_xlabel('Time')
-ax.set_ylabel('Polarisation')
-plt.show()
-
-
-
-
-
-
-
-
-
-
-
+#print(Vicsek()[4])
 ### Code to get animation ###
 
 fig, ax = plt.subplots()
@@ -194,11 +89,104 @@ def Animate_quiver(frame):
     animated_plot_quiver.set_UVC(Vicsek()[1], Vicsek()[2])#, Vicsek()[3])
     return (animated_plot_quiver, )
 
-anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
+#anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
 
 #anim.save(f"Noise Level = {eta}, D={D}.gif", dpi=400)
 #plt.savefig("2DVicsekAnimation.png", dpi=400)
+#plt.show()
+
+
+
+
+
+#Use for polarisation eqs           Works but gives weird plot due to boundary conditions????
+#If set starting angles in smaller range, better plot
+def Vicsek_pol():
+    #print(i)
+    #global pos
+    #global angle
+
+    polarisation = np.zeros(T)
+
+    for j in range(T):
+
+        pos = np.random.uniform(0, D, size=(N, 2))
+        angle = np.random.uniform(0, np.pi, size=N)
+
+        MeanAngle = np.zeros(N, )
+        noise = np.random.uniform(-eta/2, eta/2, size=(N))
+        repel_angle=np.full(shape=(N,), fill_value=np.pi/12)
+        r=np.zeros(N,)
+
+        for i in range(N):
+
+            DistanceMatrix = scipy.spatial.distance.pdist(pos)  #Scipy function to calculate distance between two agents
+            DistanceMatrix = scipy.spatial.distance.squareform(DistanceMatrix)   #matrix of form [i, j] => distance between agents i and j
+        #returns the distance of each agent to all other agents, the array is of size [N, N]
+
+            Neighbours = DistanceMatrix <= R #Gives array of True/False, if distance less than R, this returns True
+            repel = np.logical_and(DistanceMatrix <= R/5, DistanceMatrix > 0)
+
+            r[i] = np.sum(repel_angle[repel[:, i]])
+
+            MeanAngle[i] = (np.arctan2(np.sum(np.sin(angle[Neighbours[:, i]])), np.sum(np.cos(angle[Neighbours[:, i]])))) + r[i]
+                                                        #^^^^^Angles of the agents within R, the True values in 'Neighbours'
+        #Equation as in Vicsek 1995 to get the average angle of all the neighbours
+
+        MeanAngle = MeanAngle + noise   #Adding random noise element to the angle
+        #MeanAngle = np.mod(MeanAngle, 2*np.pi)
+
+
+        #x and y directions accoring to new angle
+        cos = (np.cos(MeanAngle))   
+        sin = (np.sin(MeanAngle))
+
+        #Updating the position of the agents 
+        pos[:, 0] += cos * v0 * stepsize
+        pos[:, 1] += sin * v0 * stepsize
+
+        pos = np.mod(pos, D)    #Agent appears on other side of domain when goes off one end
+
+        polarisation[j] = abs(np.sum((MeanAngle)/abs(MeanAngle))) / (N)
+
+    return pos, cos, sin, MeanAngle, polarisation, abs(np.sum(MeanAngle))
+
+
+#print(Vicsek_pol()[4])
+
+#print(Vicsek_pol()[4])
+
+
+
+### Polarisation plot ###
+
+#Polarisatio = Vicsek()[4]
+#for i in range(T):
+#    Polarisation[i] = np.sum((Vicsek()[3]/abs(Vicsek()[3])))/(N)
+    #Polarisation[i] = Vicsek()[3]
+
+time = np.linspace(0, T, T)
+
+#print(Polarisation)
+
+avg = np.full(shape=len(time), fill_value=np.mean(Vicsek_pol()[4]))
+
+fig, ax = plt.subplots(figsize=(7, 7))
+ax.plot(time, Vicsek_pol()[4], color='black', linewidth=1)
+ax.plot(0, 1, color='white')
+ax.plot(0, 0, color='white')
+ax.plot(time, avg, color='red', label='Mean Polarisation', linewidth=1.5)
+#ax.set_ylim(-0.01, 1.01)
+ax.set_xlabel('Time (s)', fontsize=14)
+ax.set_ylabel('Polarisation', fontsize=14)
+ax.tick_params(direction='out', length=4, width=1, labelsize=12, top=False, right=False)
+ax.legend(fontsize=14)
+#ax.minorticks_on()
+#plt.savefig(f"Polarisation Plot: {N} Agents.pdf" dpi=400)
+#plt.show()
+plt.savefig(f"Polarisation Plot {N} Agents, Spawn angle 0_pi.png", dpi=400)
 plt.show()
+
 
 
 
