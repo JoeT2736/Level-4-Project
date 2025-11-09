@@ -5,7 +5,7 @@ import scipy.spatial
 import scipy.constants
 
 
-N=40  #Number of agents
+N=20  #Number of agents
 D=5  #Size of domain
 T=600   #Total number of time steps (frames) in simulation
 stepsize=1  #change in time between calculation of position and angle
@@ -15,10 +15,11 @@ R=1    #Interaction radius
 Q = 1   #Potential of agents
 QW = 1  #Potential of walls
 L = 100     #Number of points in wall
+Repel_distance = 0.2
 
 pos = np.random.uniform(0+0.5, D-0.5, size=(N, 2))
 #angle = np.random.uniform(0, 2*np.pi, size=N)
-angle = np.random.uniform(-np.pi, np.pi, size=N)
+angle = np.random.uniform(0, 2*np.pi, size=N)
 
 '''
 D1 = np.full(shape=(10), fill_value=D)
@@ -63,6 +64,7 @@ def Vicsek():
     dist_wall_yd = np.zeros(N)
     dist_wall_y0 = np.zeros(N)
     force = np.zeros(N)
+    repel_force = np.zeros(N)
 
 
     for i in range(N):
@@ -72,41 +74,15 @@ def Vicsek():
         #returns the distance of each agent to all other agents, the array is of size [N, N]
 
         Neighbours = DistanceMatrix <= R #Gives array of True/False, if distance less than R, this returns True
-
-        '''
-        ### Potential walls ###
-        D0 = np.zeros(shape=L)
-        D1 = np.full(shape=(L), fill_value=D)
-        Dist = np.linspace(0, D, L)
-        wall_l = np.vstack([D0, Dist]).T
-        wall_r = np.vstack([D1, Dist]).T
-        wall_b = np.vstack([Dist, D0]).T
-        wall_t = np.vstack((Dist, D1)).T
-
-        Distance_Wall_l = scipy.spatial.distance.cdist(pos, wall_l)
-        #Distance_Wall_l = scipy.spatial.distance.squareform(Distance_Wall_l)
-        Distance_Wall_r = scipy.spatial.distance.cdist(pos, wall_r)
-        #Distance_Wall_r = scipy.spatial.distance.squareform(Distance_Wall_r)
-        Distance_Wall_b = scipy.spatial.distance.cdist(pos, wall_b)
-        #Distance_Wall_b = scipy.spatial.distance.squareform(Distance_Wall_b)
-        Distance_Wall_t = scipy.spatial.distance.cdist(pos, wall_t)
-        #Distance_Wall_t = scipy.spatial.distance.squareform(Distance_Wall_t)
-
-        t = Wall_force(Distance_Wall_t)
-
-        
-        #force experienced on each agent due to each point in the walls
-        force_l[i] = Wall_force(Distance_Wall_l[:, i])    #force from left wall
-        #force_r[i] = Wall_force(Distance_Wall_r)
-        #force_b[i] = Wall_force(Distance_Wall_b)
-        #force_t[i] = Wall_force(Distance_Wall_t)
-        '''
-
-        #forces need a direction??? 
+        Repel = np.logical_and(DistanceMatrix > 0, DistanceMatrix <= Repel_distance)
 
         MeanAngle[i] = (np.arctan2(np.sum(np.sin(angle[Neighbours[:, i]])), np.sum(np.cos(angle[Neighbours[:, i]])))) 
                                                         #^^^^^Angles of the agents within R, the True values in 'Neighbours'
         #Equation as in Vicsek 1995 to get the average angle of all the neighbours
+
+        #MeanAngl = DistanceMatrix[Repel[:, i]]
+
+        #repel_force = (1/DistanceMatrix[Repel[:, i]])
 
         #Infinite potential walls => agents stay within domain
         dist_wall_xd[i] = D - pos[:, 0][i]
@@ -126,8 +102,7 @@ def Vicsek():
     MeanAngle += force
 
     MeanAngle = MeanAngle + noise   #Adding random noise element to the angle
-        #MeanAngle = np.mod(MeanAngle, 2*np.pi)
-
+    MeanAngle = np.mod(MeanAngle, 2*np.pi)
 
         #x and y directions accoring to new angle
     cos = (np.cos(MeanAngle))   
@@ -143,8 +118,8 @@ def Vicsek():
     #frame += 1
     #print(frame)
 
-    return pos, cos, sin, MeanAngle
-#print(Vicsek()[4])
+    return pos, cos, sin, MeanAngle, MeanAngle, repel_force
+print(Vicsek()[5])
 
 fig, ax = plt.subplots()
 ax.set_xlim([0, D])
@@ -170,7 +145,7 @@ def Animate_quiver(frame):
 
 anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
 
-#anim.save(f"Noise Level = {eta}, D={D}.gif", dpi=400)
+anim.save(f"Infinite Potential Wall, Noise Level = {eta}, D={D}.gif", dpi=400)
 #plt.savefig("2DVicsekAnimation.png", dpi=400)
 plt.show()
 
