@@ -37,10 +37,10 @@ def Vicsek_pol(N, eta):
 
             for i in range(N):
 
-                Neighbours = DistanceMatrix[i] <= R #Gives array of True/False, if distance less than R, this returns True
+                Neighbours = DistanceMatrix <= R #Gives array of True/False, if distance less than R, this returns True
 
-                avgsin = np.mean(np.sin(angle[Neighbours]))
-                avgcos = np.mean(np.cos(angle[Neighbours]))
+                avgsin = np.mean(np.sin(angle[Neighbours[:, i]]))
+                avgcos = np.mean(np.cos(angle[Neighbours[:, i]]))
 
                 MeanAngle = np.arctan2(avgsin, avgcos) 
                                                         #^^^^^Angles of the agents within R, the True values in 'Neighbours'
@@ -73,7 +73,7 @@ def Vicsek_pol(N, eta):
 
 Populations = [40, 100, 400]
 eta = np.linspace(0, 5, 300)
-print(Vicsek_pol(40, eta))
+#print(Vicsek_pol(40, eta))
 
 fig, ax = plt.subplots(figsize=(7, 7))
 
@@ -83,16 +83,12 @@ for N in Populations:
 
 ax.plot(0, 1, color='white')
 ax.plot(0, 0, color='white')
-#ax.plot(time, avg, color='red', label='Mean Polarisation', linewidth=1.5, linestyle=':')
-#ax.set_ylim(-0.01, 1.01)
 ax.set_xlabel('Noise (η)', fontsize=14)
 ax.set_ylabel('Polarisation', fontsize=14)
 ax.tick_params(direction='out', length=4, width=1, labelsize=12, top=False, right=False)
 ax.legend(fontsize=14)
 #ax.minorticks_on()
-#plt.savefig(f"Polarisation Plot: {N} Agents.pdf" dpi=400)
-#plt.show()
-#plt.savefig(f"Polarisation Plot Agents, Spawn angle 0_2pi.png", dpi=400)
+plt.savefig(f"Polarisation Plot.png", dpi=400)
 plt.show()
 
 
