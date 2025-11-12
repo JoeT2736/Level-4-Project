@@ -23,9 +23,9 @@ blind_front = 2*np.pi/3     #Area in front of fish, where it does not align
 attraction_scale = 1 
 repulsion_scale = 1
 aligning_scale = 1
-attraction_range = 5
-repulsion_range = 4
-aligning_range = 1   
+attraction_range = 3
+repulsion_range = 1
+aligning_range = 2   
 eccentricity = 2
 
 
@@ -53,19 +53,18 @@ def Vicsek():
     repel_angle = np.zeros(N,)
     attract_angle = np.zeros(N,)
     w_a = np.zeros(N,)
-    #w_r = np.zeros(N,)
+    w_r = np.zeros(N,)
     w_p = np.zeros(N,)
     rotation = np.zeros(N,)
     weight_a = np.zeros(N,)
     weight_r = np.zeros(N,)
     weight_p = np.zeros(N,)
 
+    DistanceMatrix = scipy.spatial.distance.pdist(pos)  #Scipy function to calculate distance between two agents
+    DistanceMatrix = scipy.spatial.distance.squareform(DistanceMatrix)   #matrix of form [i, j] => distance between agents i and j
+    #returns the distance of each agent to all other agents, the array is of size [N, N]
 
     for i in range(N):
-
-        DistanceMatrix = scipy.spatial.distance.pdist(pos)  #Scipy function to calculate distance between two agents
-        DistanceMatrix = scipy.spatial.distance.squareform(DistanceMatrix)   #matrix of form [i, j] => distance between agents i and j
-        #returns the distance of each agent to all other agents, the array is of size [N, N]
 
         #Gives array of True/False, if distance less than R, this returns True
         attract = np.logical_and(DistanceMatrix <= attraction_range, DistanceMatrix > aligning_range, DistanceMatrix > repulsion_range) 
@@ -74,20 +73,19 @@ def Vicsek():
 
         x = pos[:, 0]
         y = pos[:, 1]
-        w_r = (x[repel[:, i]], x[repel[:, i-1]])
-
-
         
-        #repulsion rotation
+        ### repulsion rotation ###
         #angle between heading direction of i and the direction of i to j
+        #repel_angle[i] = np.angle((np.sqrt((x[repel[:, i+1]] - x[repel[:, i]])**2 - (y[repel[:, i+1]] - y[repel[:, i]])**2), direction[repel[:, i]]))
         
-        #repel_angle = np.angle((np.sqrt((x[repel[:, i + 1]] - x[repel[:, i]])**2 - (y[repel[:, i + 1]] - y[repel[:, i]])**2), direction[repel[:, i]]))
-        '''
-        if repel_angle[i] > 0:
-            w_r[i] = -w_def[i]
-        if repel_angle[i] < 0:
-            w_r[i] = w_def[i]
+        #if repel_angle[i] > 0:
+        #    w_r[i] = -w_def[i]
+        #if repel_angle[i] < 0:
+        #    w_r[i] = w_def[i]
+        
+        ###                    ###
 
+        '''
         #attraction rotation
         attract_angle[i] = np.angle((np.sqrt((x[attract[:, i + 1]] - x[attract[:, i]])**2 - (y[attract[:, i + 1]] - y[attract[:, i]])**2) , direction[attract[:, i]]))
         w_a[i] = w_def * attract_angle[i]
@@ -123,10 +121,17 @@ def Vicsek():
 
     pos = np.mod(pos, D)    #Agent appears on other side of domain when goes off one end
 
-    return pos, cos, sin, Meandirection, w_r, x
+    return pos, cos, sin, Meandirection, w_r, attract
 
-print(Vicsek()[4])
+#print(Vicsek()[4])
 print(Vicsek()[5])
+
+fig, ax = plt.subplots()
+ax.set_xlim([0, D])
+ax.set_ylim([0, D])
+colours=['g', 'r', 'b']
+ax.quiver(pos[:, 0], pos[:, 1], np.cos(direction), np.sin(direction), clim=[-np.pi, np.pi], color=colours)
+plt.show()
 
 
 ### Code to get animation ###
