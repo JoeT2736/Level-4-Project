@@ -8,12 +8,12 @@ import scipy.spatial
 
 plt.rcParams["font.family"] = "Times New Roman"
 
-N=100  #Number of agents
+N=500  #Number of agents
 D=10  #Size of domain
 T=600   #Total number of time steps (frames) in simulation
-stepsize=1  #change in time between calculation of position and angle
+stepsize=0.2  #change in time between calculation of position and angle
 eta=0.15   #Random noise added to angles
-v0=0.03   #Starting velocity
+v0=1   #Starting velocity
 R=1    #Interaction radius
 
 
@@ -28,6 +28,7 @@ def Vicsek():
     global angle
 
     MeanAngle = np.zeros(N, )
+    #MeanAngle2 = np.zeros(N, )
     noise = np.random.uniform(-eta/2, eta/2, size=(N))
 
     DistanceMatrix = scipy.spatial.distance.pdist(pos)  #Scipy function to calculate distance between two agents
@@ -37,7 +38,8 @@ def Vicsek():
     for i in range(N):
         Neighbours = DistanceMatrix <= R #Gives array of True/False, if distance less than R, this returns True
 
-        MeanAngle[i] = (np.arctan2(np.mean(np.sin(angle[Neighbours[:, i]])), np.mean(np.cos(angle[Neighbours[:, i]]))))
+        MeanAngle[i] = (np.arctan2(np.sum(np.sin(angle[Neighbours[:, i]])), np.sum(np.cos(angle[Neighbours[:, i]]))))
+        #MeanAngle2[i] = (np.arctan2(np.mean(np.sin(angle[Neighbours[:, i]])), np.mean(np.cos(angle[Neighbours[:, i]]))))
                                                         #^^^^^Angles of the agents within R, the True values in 'Neighbours'
         #Equation as in Vicsek 1995 to get the average angle of all the neighbours
 
@@ -54,9 +56,12 @@ def Vicsek():
 
     pos = np.mod(pos, D)    #Agent appears on other side of domain when goes off one end
 
-    return pos, cos, sin, MeanAngle, Neighbours
+    angle = MeanAngle
 
-print(Vicsek()[4])
+    return pos, cos, sin, MeanAngle, Neighbours#, MeanAngle2
+
+print(Vicsek()[3])
+#print(Vicsek()[5])
 ### Code to get animation ###
 
 fig, ax = plt.subplots()
@@ -83,7 +88,7 @@ def Animate_quiver(frame):
 
 anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = stepsize, frames = T, blit = False, repeat=False)
 
-#anim.save(f"Noise Level = {eta}, D={D}.gif", dpi=400)
+#anim.save(f"Noise Level = {eta}, D={D}, V0={v0}, N={N}.gif", dpi=400)
 #plt.savefig("2DVicsekAnimation.png", dpi=400)
 plt.show()
 

@@ -12,7 +12,7 @@ from scipy.spatial.distance import squareform
 plt.rcParams["font.family"] = "Times New Roman"
 
 #N=100  #Number of agents
-D=10  #Size of domain
+#D=10  #Size of domain
 T=600   #Total number of time steps (frames) in simulation
 stepsize=1  #change in time between calculation of position and angle
 #eta=0.15   #Random noise added to angles
@@ -20,7 +20,7 @@ v0=0.03   #Starting velocity
 R=1    #Interaction radius
 
 
-def Vicsek_pol(N, eta):
+def Vicsek_pol(N, eta, D):
 
     pol = []
     
@@ -33,26 +33,20 @@ def Vicsek_pol(N, eta):
         for _ in range(T):
             
             DistanceMatrix = squareform(pdist(pos))
-            NewAngle = np.zeros_like(angle)
+            noise = np.random.uniform(-k/2, k/2, size=(N))
+            MeanAngle = np.zeros(N,)
 
             for i in range(N):
 
                 Neighbours = DistanceMatrix <= R #Gives array of True/False, if distance less than R, this returns True
 
-                avgsin = np.mean(np.sin(angle[Neighbours[:, i]]))
-                avgcos = np.mean(np.cos(angle[Neighbours[:, i]]))
-
-                MeanAngle = np.arctan2(avgsin, avgcos) 
+                MeanAngle[i] = (np.arctan2(np.mean(np.sin(angle[Neighbours[:, i]])), np.mean(np.cos(angle[Neighbours[:, i]])))) + noise[i]
                                                         #^^^^^Angles of the agents within R, the True values in 'Neighbours'
-                #Equation as in Vicsek 1995 to get the average angle of all the neighbours
+                #Equation as in Vicsek 1995 to get the average angle of all the neighbour
 
-                NewAngle[i] = MeanAngle + np.random.uniform(-k/2, k/2)
-
-            angle = NewAngle    #Adding random noise element to the angle
-        
         #x and y directions accoring to new angle
-            cos = (np.cos(angle))   
-            sin = (np.sin(angle))
+            cos = (np.cos(MeanAngle))   
+            sin = (np.sin(MeanAngle))
 
         #Updating the position of the agents 
             pos[:, 0] += cos * v0 * stepsize
@@ -60,9 +54,13 @@ def Vicsek_pol(N, eta):
 
             pos = np.mod(pos, D)    #Agent appears on other side of domain when goes off one end
 
+            angle = MeanAngle
+
             vx = np.mean(cos)
             vy = np.mean(sin)
+
             pol_time_step.append(np.sqrt(vx**2 + vy**2))
+
         
         pol.append(np.mean(pol_time_step))
 
@@ -72,23 +70,24 @@ def Vicsek_pol(N, eta):
 
 
 Populations = [40, 100, 400]
-eta = np.linspace(0, 5, 300)
-#print(Vicsek_pol(40, eta))
+Size = [3.1, 5, 10]
+eta = np.linspace(0, 5, 100)
+#print(Vicsek_pol(40, eta, 3.1))
 
 fig, ax = plt.subplots(figsize=(7, 7))
 
-for N in Populations:
-    polarisation = Vicsek_pol(N, eta)
+for N, D in zip(Populations, Size):
+    polarisation = Vicsek_pol(N, eta, D)
     plt.plot(eta, polarisation, '-o', label=f'N={N}')
 
 ax.plot(0, 1, color='white')
 ax.plot(0, 0, color='white')
 ax.set_xlabel('Noise (η)', fontsize=14)
-ax.set_ylabel('Polarisation', fontsize=14)
+ax.set_ylabel('Polar Order Parameter', fontsize=14)
 ax.tick_params(direction='out', length=4, width=1, labelsize=12, top=False, right=False)
 ax.legend(fontsize=14)
 #ax.minorticks_on()
-plt.savefig(f"Polarisation Plot.png", dpi=400)
+#plt.savefig(f"Polar Order Paraeter Plot.png", dpi=400)
 plt.show()
 
 
