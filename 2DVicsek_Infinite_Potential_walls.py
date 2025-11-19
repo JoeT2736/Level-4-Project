@@ -12,18 +12,23 @@ stepsize=1  #change in time between calculation of position and angle
 eta=0.15   #Random noise added to angles
 v0=0.03   #Starting velocity
 R=1    #Interaction radius
-scale = 2
-force_scale = 0.005
-wall = 1
+scale = 3
+force_scale = 0.01
+fake_wall = 1
 
 
-pos = np.random.uniform(0, D, size=(N, 2))
+pos = np.random.uniform(0+0.1, D-0.1, size=(N, 2))
 angle = np.random.uniform(0, 2*np.pi, size=N)
 
 def wall_force(position, wall, direction, choice):
-    dist = wall - position
-    if dist < wall:      #if close enough then...
-        force_wall = 1/(dist)**scale      #potential due to wall
+    if D == D:
+        dist = wall - position
+    elif D == 0:
+        dist = position
+
+    if abs(dist) < fake_wall:      #if close enough then...
+        force_wall = 1/(abs(dist))**scale      #potential due to wall
+        #force_wall = np.exp(dist**scale)
         if direction >= choice:      #choice = angle where boid turns either up/down or left/right based on its direction
             force_wall = force_wall
         elif direction < choice:
@@ -34,6 +39,7 @@ def wall_force(position, wall, direction, choice):
     return force_wall
 
 def Vicsek():
+
     global pos
     global angle
 
@@ -80,7 +86,9 @@ def Vicsek():
 
     angle = Meandirection
 
-    return pos, cos, sin
+    return pos, cos, sin, force_wall_left
+
+print(Vicsek()[3])
 
 
 
@@ -102,7 +110,7 @@ ax.set_aspect('equal', adjustable='box')
 
 
 def Animate_quiver(frame):
-    pos, cos, sin = Vicsek()
+    pos, cos, sin, k = Vicsek()
     animated_plot_quiver.set_offsets(pos)
     animated_plot_quiver.set_UVC(cos, sin)
     return (animated_plot_quiver,)

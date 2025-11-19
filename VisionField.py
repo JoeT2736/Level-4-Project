@@ -14,7 +14,6 @@ v0=0.03   #Starting velocity
 R=1    #Interaction radius
 scale = 2
 force_scale = 0.005
-wall = 1
 w = np.pi/2   #FOV
 fake_wall = 1
 
@@ -37,7 +36,7 @@ def wall_force(position, wall, direction, choice):
         dist = (wall - position) * np.sin(direction - np.pi)
         '''
     if abs(dist) < fake_wall:      #if close enough then...
-        force_wall = 1/(dist)**scale      #potential due to wall
+        force_wall = 1/(abs(dist))**scale      #potential due to wall
         if direction >= choice:      #choice = angle where boid turns either up/down or left/right based on its direction
             force_wall = force_wall
         elif direction < choice:
