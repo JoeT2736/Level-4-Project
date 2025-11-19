@@ -170,35 +170,41 @@ def Hemelrijk():
 
         ##########################
 
-        '''
+        
         #weight of repulsion
-        weight_r[i] = np.min(0.005 * repulsion_scale / DistanceMatrix[repel[:, i]]**3, 10)
+        if np.sum(repel_Neighbours) > 0:
+            weight_r = (0.005 * repulsion_scale / DistanceMatrix**3)
+            weight_r[weight_r == np.inf] = 0
+        else:
+            weight_r = 0
 
         #weight of attraction
-        weight_a[i] = 0.2 * attraction_scale * np.exp(-((DistanceMatrix[attract[:, i]] - 0.5*(attraction_range + aligning_range))/(attraction_range - aligning_range))**2)
+        if np.sum(attract_Neighbours) > 0:
+            weight_a = 0.2 * attraction_scale * np.exp(-((DistanceMatrix - 0.5*(attraction_range + aligning_range))/(attraction_range - aligning_range))**2)
 
         #weight of alignment
-        weight_p[i] = aligning_scale * np.exp(-((DistanceMatrix[attract[:, i]] - 0.5*(aligning_range + repulsion_range))/(aligning_range - repulsion_range))**2)
-
-        #behavioural reaction = weighted sum
-        rotation[i] = weight_r*w_r[i] + weight_a*w_a[i] + weight_p*w_p[i]
-
-        #new direction of ith agent
-        direction[i] += np.random.normal(direction[i] + rotation[i]*timestep, scale=SD)
-        '''
+        if np.sum(align_Neighbours) > 0:
+            weight_p = aligning_scale * np.exp(-((DistanceMatrix - 0.5*(aligning_range + repulsion_range))/(aligning_range - repulsion_range))**2)
 
         force_wall_left[i] = wall_force(pos[i, 0], 0, Meandirection[i], np.pi)
         force_wall_right[i] = wall_force(pos[i, 0], D, Meandirection[i], 0)
         force_wall_bot[i] = wall_force(pos[i, 1], 0, Meandirection[i], 3*np.pi/2)
         force_wall_top[i] = wall_force(pos[i, 1], D, Meandirection[i], np.pi/2)
+        force_wall = (force_wall_left + force_wall_right + force_wall_bot + force_wall_top)*force_scale
 
-    force_wall = force_wall_left + force_wall_right + force_wall_bot + force_wall_top
+        #behavioural reaction = weighted sum
+        rotation = weight_r*w_r + weight_a*w_a + weight_p*w_p + force_wall
 
-    Meandirection = Meandirection + force_wall*force_scale
+        #new direction of ith agent
+        #direction += np.random.normal(direction + rotation*timestep, scale=SD)
+        
+    #force_wall = force_wall_left + force_wall_right + force_wall_bot + force_wall_top
+
+    #Meandirection = Meandirection + force_wall*force_scale
 
     #x and y directions accoring to new direction
-    cos = (np.cos(Meandirection))   
-    sin = (np.sin(Meandirection))
+    cos = (np.cos(rotation))   
+    sin = (np.sin(rotation))
 
         #Updating the position of the agents
     pos[:, 0] += cos * speed() * timestep
@@ -208,14 +214,14 @@ def Hemelrijk():
 
     #pos = np.mod(pos, D)    #Agent appears on other side of domain when goes off one end
 
-    return pos, cos, sin, (repel_Neighbours), angle_difference[repel_Neighbours[:, 4]], angle_difference, align_Neighbours, w_p
+    return pos, cos, sin, weight_r, weight_a, weight_p, rotation#, angle_difference[repel_Neighbours[:, 4]], angle_difference, align_Neighbours, w_p
 
 
 print(Hemelrijk()[3])
 print(Hemelrijk()[4])
 print(Hemelrijk()[5])
 print(Hemelrijk()[6])
-print(Hemelrijk()[7])
+
 
 #fig, ax = plt.subplots()
 #ax.set_xlim([0, D])
@@ -245,13 +251,13 @@ ax.set_aspect('equal', adjustable='box')
 
 
 def Animate_quiver(frame):
-    pos, cos, sin = Hemelrijk()
+    pos, cos, sin, k, l, j, m = Hemelrijk()
     animated_plot_quiver.set_offsets(pos)
     animated_plot_quiver.set_UVC(cos, sin)#, Vicsek()[3])
     return (animated_plot_quiver, )
 
-#anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
+anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
 
 #anim.save(f"Hemelrijk, Pop={N}.gif", dpi=400)
 #plt.savefig("2DVicsekAnimation.png", dpi=400)
-#plt.show()
+plt.show()
