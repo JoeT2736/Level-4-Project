@@ -15,11 +15,9 @@ R=1    #Interaction radius
 scale = 3
 force_scale = 0.01
 fake_wall = 1
-Radius_circle = D/2
-centre = np.array([Radius_circle, Radius_circle])
 epsilon = 1e-6
 
-np.random.seed(16)
+np.random.seed(10)
 
 pos = np.random.uniform(0+0.3, D-0.3, size=(N, 2))
 angle = np.random.uniform(0, 2*np.pi, size=N)

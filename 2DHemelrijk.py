@@ -32,6 +32,7 @@ force_scale = 0.002
 fake_wall = 1
 w_repel = np.deg2rad(60)    #angle in front of fish for repulsion
 w_attract = np.deg2rad(300)
+epsilon = 1e-6      #prevents divide by zero in wall force calculations
 
 
 
@@ -50,18 +51,36 @@ def speed():
     return np.random.normal(vel0, scale=v_SD)
 
 
-def wall_force(position, wall, direction, choice):
-    dist = wall - position
-    if abs(dist) < fake_wall:      #if close enough then...
-        force_wall = 1/(abs(dist))**scale      #potential due to wall
-        if direction >= choice:      #choice = angle where boid turns either up/down or left/right based on its direction
-            force_wall = force_wall
-        elif direction < choice:
-            force_wall = -force_wall
-    else:
-        force_wall = 0
+def wall_force_vector(position, angle):
+                         # x and y direction of the boid
+    direction = np.array([np.cos(angle), np.sin(angle)])  
+    Force = np.zeros(2)     # setting array for force due to walls
 
-    return force_wall
+    # distance to walls
+    dist_left = position[0]         # x = 0
+    dist_right = D - position[0]    # x = D
+    dist_bot = position[1]          # y = 0
+    dist_top = D - position[1]      # y = D
+
+    # normal vectors pointing away from each wall, alongside the boids respective distance to that wall
+    normals = [
+        (np.array([1.0, 0.0]), dist_left),       
+        (np.array([-1.0, 0.0]), dist_right),    
+        (np.array([0.0, 1.0]), dist_bot),        
+        (np.array([0.0, -1.0]), dist_top)        
+    ]
+
+    # calculate force due to wall, and update 'Force', with the force and its direction using the normal vectors
+    for norm_vec, dist in normals:
+        if dist < fake_wall:
+            mag = 1.0 / ((dist + epsilon)**scale)   # epsilon for if distance = 0
+            Force += mag * norm_vec   
+
+    # changes the force from the wall, to a force that changes the direction of the boid, not the position
+    torque = direction[0]*Force[1] - direction[1]*Force[0]
+
+    return torque
+
 
 #print(speed())
 
@@ -94,6 +113,7 @@ def Hemelrijk():
     direction_vectors = np.zeros(shape=(N, N, 2))
     dots = np.zeros((N, N))
     angle_difference = np.zeros((N, N))
+    total_wall_torque = np.zeros(N)
 
 
 
@@ -192,13 +212,10 @@ def Hemelrijk():
         #behavioural reaction = weighted sum
         rotation = weight_r*w_r + weight_a*w_a + weight_p*w_p
 
-        #force_wall_left[i] = wall_force(pos[i, 0], 0, rotation[i], np.pi)
-        #force_wall_right[i] = wall_force(pos[i, 0], D, rotation[i], 0)
-        #force_wall_bot[i] = wall_force(pos[i, 1], 0, rotation[i], 3*np.pi/2)
-        #force_wall_top[i] = wall_force(pos[i, 1], D, rotation[i], np.pi/2)
-        #force_wall = (force_wall_left + force_wall_right + force_wall_bot + force_wall_top)*force_scale
-
-        #rotation += force_wall
+        #wall_torque = wall_force_vector(pos[i], Meandirection[i])
+        #total_wall_torque[i] = wall_torque
+    
+    #Meandirection = Meandirection + total_wall_torque * force_scale
 
         #new direction of ith agent
         Meandirection = np.random.normal(direction + rotation*timestep, scale=SD)
