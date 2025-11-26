@@ -3,13 +3,14 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import scipy.spatial
 import scipy.constants
+from matplotlib.animation import FFMpegWriter
 
 
 N=30  #Number of agents
 D=5  #Size of domain
-T=6000   #Total number of time steps (frames) in simulation
+T=600   #Total number of time steps (frames) in simulation
 stepsize=1  #change in time between calculation of position and angle
-eta=0.15   #Random noise added to angles
+eta=3   #Random noise added to angles
 v0=0.03   #Starting velocity
 R=1    #Interaction radius
 scale = 3
@@ -72,13 +73,12 @@ def Vicsek():
 
         Neighbours = DistanceMatrix <= R #Gives array of True/False, if distance less than R, this returns True
         
-        Meandirection[i] = (np.arctan2(np.mean(np.sin(angle[Neighbours[:, i]])), np.mean(np.cos(angle[Neighbours[:, i]])))) + noise[i]
+        Meandirection[i] = (np.arctan2(np.sum(np.sin(angle[Neighbours[:, i]])), np.sum(np.cos(angle[Neighbours[:, i]])))) + noise[i]
                                                         #^^^^^Angles of the agents within R, the True values in 'Neighbours'
         #Equation as in Vicsek 1995 to get the average angle of all the neighbours
 
 
-        wall_torque = wall_force_vector(pos[i], Meandirection[i])
-        total_wall_torque[i] = wall_torque
+        total_wall_torque[i] = wall_force_vector(pos[i], Meandirection[i])
     
     Meandirection = Meandirection + total_wall_torque * force_scale
 
@@ -127,8 +127,8 @@ def Animate_quiver(frame):
 
 anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
 
-#anim.save(f"Hemelrijk, Noise Level = {eta}, N={N}, D={D}, potential scale = {force_scale}.gif", dpi=400)
-#plt.savefig("2DVicsekAnimation.png", dpi=400)
+#anim.save(f"Potential Walls, Noise Level = {eta}, N={N}, D={D}, potential scale = {force_scale}.gif", dpi=400)
+#plt.savefig(f"Potential Walls, Noise Level = {eta}, N={N}, D={D}, potential scale = {force_scale}.png", dpi=400)
 plt.show()
 
 
