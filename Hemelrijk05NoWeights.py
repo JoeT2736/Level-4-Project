@@ -228,8 +228,8 @@ import scipy.spatial
 import scipy.constants
 
 
-N=40  #Number of agents
-D=8  #Size of domain
+N=5  #Number of agents
+D=5  #Size of domain
 T=1000   #Total number of time steps (frames) in simulation
 stepsize=0.2 #seconds      #change in time between calculation of position and angle
 eta=0.15   #Random noise added to angles
@@ -241,7 +241,8 @@ fake_wall = 1
 epsilon = 1e-6
 v_SD = 0.03     # 0.03m/s
 direction_SD = np.pi/72
-turning_rate = (np.pi/2)/10 #pi/2 rad/s
+turning_rate_attraction = (np.pi/2)/80
+turning_rate = (np.pi/2)/2 #pi/2 rad/s
 repulsion_range_s = 0.3   #meters  for small fish
 repulsion_range_l = 0.6   #m  for large fish
 attraction_range = 5    #m  
@@ -295,6 +296,22 @@ def speed():
     return np.random.normal(vel0, scale=v_SD)
 
 
+
+def zones():
+    ##### Area of zones to draw on plot #####
+
+    repel_circle = np.pi * repulsion_range_s**2
+    repel_zone = repel_circle * np.pi/repel_LOS
+
+    #centre zone to centre of boid -> angle zone to direction of boid
+
+    repel_zones = np.full(N, fill_value=repel_zone)
+
+
+
+    return
+
+
 def update():
 
     global pos
@@ -310,9 +327,9 @@ def update():
     attract_angle = np.zeros(N)
     attract_torque = np.zeros(N)
     direction_difference = np.zeros(N)
-    repel_mask_LOS = np.zeros((N, N))
-    align_mask_LOS = np.zeros((N, N))
-    attract_mask_LOS = np.zeros((N, N))
+    #repel_mask_LOS = np.zeros((N, N))
+    #align_mask_LOS = np.zeros((N, N))
+    #attract_mask_LOS = np.zeros((N, N))
     direction_i = np.zeros((N, 2))
     dots = np.zeros((N, N))
     angle_difference = np.zeros((N, N))
@@ -360,12 +377,18 @@ def update():
         align_mask_s = np.logical_and(align_mask_distance_s, align_mask_LOS)
         attract_mask_s = np.logical_and(attract_mask_distance_s, attract_mask_LOS)
 
+        #Change mask values to True for when DistanceMatrix value is the distance of an agent to itself
+        #for j in range (N):
+        #    repel_mask_s[:, j][j] = True
+        #    align_mask_s[:, j][j] = True
+        #    attract_mask_s[:, j][j] = True
+
 
         ##### repulsion #####
-        repel_angle[i] = np.sum(angle_difference[repel_mask_s[:, i]])
+        repel_angle[i] = np.mean(angle_difference[repel_mask_s[:, i]])
 
         if np.sum(repel_mask_s[:, i]) > 0:
-            if repel_angle[i] > np.pi/2:
+            if repel_angle[i] >= np.pi/2:
                 repel_torque[i] = -turning_rate
             if repel_angle[i] < np.pi/2:
                 repel_torque[i] = turning_rate
@@ -376,7 +399,7 @@ def update():
         ##### alignment #####
         if np.sum(align_mask_s[:, i]) > 0:
             direction_difference = angle - angle[i]
-            align_angle[i] = np.sum(direction_difference[align_mask_s[:, i]])
+            align_angle[i] = np.mean(direction_difference[align_mask_s[:, i]])
             align_torque[i] = turning_rate * align_angle[i]     #times by 0.7 or less if they still spin about
         else:
             align_torque[i] = 0
@@ -384,15 +407,32 @@ def update():
         
         ##### attraction #####
         if np.sum(attract_mask_distance_s[:, i]) > 0:
-            attract_angle[i] = np.sum(angle_difference2[attract_mask_distance_s[i]])
-            attract_torque[i] = turning_rate * attract_angle[i]
+            attract_angle[i] = np.mean(angle_difference2[attract_mask_distance_s[:, i]])
+            attract_torque[i] = turning_rate_attraction * attract_angle[i]
         else:
             attract_torque[i] = 0
 
-            
 
-        #Meandirection[i] += repel_torque[i] + align_torque[i] 
-        Meandirection[i] += attract_torque[i]
+        #Meandirection[i] += repel_torque[i] 
+        #Meandirection[i] += align_torque[i] 
+        #Meandirection[i] += attract_torque[i]
+
+        Meandirection[i] += np.mean(repel_torque[i] + align_torque[i] + attract_torque[i])
+
+
+
+        ##### Area of zones to draw on plot #####
+        repel_circle = np.pi * repulsion_range_s**2
+        repel_zone = repel_circle * np.pi/repel_LOS
+
+        #centre zone to centre of boid -> angle zone to direction of boid
+
+        repel_zones = np.full(N, fill_value=repel_zone)
+
+        repel_zones_cetre_positions = np.array(repel_zones, pos[0], pos[1])
+
+        #repel_zones_direction = np.array(repel_zones)
+        #########################################
     
 
         #total_wall_torque[i] = wall_force_vector(pos[i], Meandirection[i])
@@ -423,11 +463,11 @@ def update():
 
 
 
-
 fig, ax = plt.subplots()
 ax.set_xlim([0, D])
 ax.set_ylim([0, D])
-animated_plot_quiver = ax.quiver(pos[:, 0], pos[:, 1], np.cos(angle), np.sin(angle), clim=[-np.pi, np.pi])
+animated_plot_quiver = ax.quiver(pos[:, 0], pos[:, 1], np.cos(angle), np.sin(angle), clim=[-np.pi, np.pi], pivot='mid')
+#animated_plot_repel_zones = ax.annotate("", xy=pos, xytext=pos)
 
 
 plt.rcParams["font.family"] = "Times New Roman"
@@ -442,13 +482,14 @@ ax.set_aspect('equal', adjustable='box')
 
 
 def Animate_quiver(frame):
-    pos, cos, sin, k, k, l = update()
+    pos, cos, sin, k, d, l = update()
     animated_plot_quiver.set_offsets(pos)
     animated_plot_quiver.set_UVC(cos, sin)
+    #print(k, d, l)
     return (animated_plot_quiver,)
 
 
-anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
+#anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
 
 #anim.save(f"Hemelrijk, with LOS mask.gif", dpi=400)
 #plt.savefig("2DVicsekAnimation.png", dpi=400)
