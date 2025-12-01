@@ -311,7 +311,7 @@ direction_SD = np.pi/72
 turning_rate = (np.pi/2) #pi/2 rad/s
 repulsion_range_s = 0.3   #meters  for small fish
 repulsion_range_l = 0.6   #m  for large fish
-attraction_range = 5    #m  
+attraction_range = 5      #m  
 aligning_range_s = 1      #m  for small fish
 aligning_range_l = 2      #m  for large fish
 eccentricity_s = 2
@@ -332,12 +332,10 @@ np.random.seed(12)
 pos = np.random.uniform(0, D, size=(N, 2))
 angle = np.random.uniform(0, 2*np.pi, size=N)
 
-size_s = np.zeros(25)
-size_l = np.ones(75)
-
+size_s = np.zeros(50)
+size_l = np.ones(50)
 size = np.concatenate((size_s, size_l))
 
-#print(size)
 
 
 def wall_force_vector(position, angle):
@@ -467,64 +465,88 @@ def update():
     rotation_s = np.zeros(N)
     rotation_l = np.zeros(N)
         
-        ############################## small ##############################
+    ############################## small ##############################
 
     for i in range(N):
 
         if size[i] == 0:
 
-        ##### repulsion #####
+            ##### repulsion #####
             repel_s = np.where(repel_mask_s[i])[0]
+            repel_contribution = 0
 
             if repel_s.size > 0:
-               
-                ### for active sorting ###
-                
-                #if size[i, repel_s] == 0:
 
-                    #rotation_s[i] = repel(rel_bearing_ij[i, repel_s], DistanceMatrix[i, repel_s], repel_scalefactor_s/active_sort_repel)
+                if size[i] == 0:
+
+                    repel_contribution = repel(rel_bearing_ij[i, repel_s], DistanceMatrix[i, repel_s], repel_scalefactor_s/active_sort_repel)
                    
-                #if size[i, repel_s] == 1:
+                if size[i] == 1:
 
-                    #rotation_s[i] = repel(rel_bearing_ij[i, repel_s], DistanceMatrix[i, repel_s], repel_scalefactor_s*active_sort_repel)
-                    
-                ##########################
-
-                rotation_s[i] = repel(rel_bearing_ij[i, repel_s], DistanceMatrix[i, repel_s], repel_scalefactor_s)
+                    repel_contribution = repel(rel_bearing_ij[i, repel_s], DistanceMatrix[i, repel_s], repel_scalefactor_s*active_sort_repel*risk_avoidance)
+   
+                #rotation_s[i] = repel(rel_bearing_ij[i, repel_s], DistanceMatrix[i, repel_s], repel_scalefactor_s)
+                rotation_s[i] = repel_contribution
         
             else:
 
-            ##### alignment #####
+                ##### alignment #####
                 align_s = np.where(align_mask_s[i])[0]
                 align_contribution_s = 0
 
                 if align_s.size > 0:
 
-                    align_contribution_s = align(DistanceMatrix[i, align_s], angle[align_s], angle[i], align_scalefactor, aligning_range_s, repulsion_range_s)
+                    if size[i] == 0:
+
+                        align_contribution_s = align(DistanceMatrix[i, align_s], angle[align_s], angle[i], align_scalefactor*active_sort_align, aligning_range_s, repulsion_range_s)
+
+                    if size[i] == 1:
+
+                        align_contribution_s = align(DistanceMatrix[i, align_s], angle[align_s], angle[i], align_scalefactor/active_sort_align, aligning_range_s, repulsion_range_s)
+
+                    #align_contribution_s = align(DistanceMatrix[i, align_s], angle[align_s], angle[i], align_scalefactor, aligning_range_s, repulsion_range_s)
 
             
-            ##### attraction #####
+                ##### attraction #####
                 attract_s = np.where(attract_mask_s[i])[0]
                 attract_contribution_s = 0
 
                 if attract_s.size > 0:
 
-                    attract_contribution_s = attract(rel_bearing_ij[i, attract_s], DistanceMatrix[i, attract_s], attract_scalefactor, attraction_range, aligning_range_s)
+                    if size[i] == 0:
+
+                        attract_contribution_s = attract(rel_bearing_ij[i, attract_s], DistanceMatrix[i, attract_s], attract_scalefactor*active_sort_attract, attraction_range, aligning_range_s)
+
+                    if size[i] == 1:
+
+                        attract_contribution_s = attract(rel_bearing_ij[i, attract_s], DistanceMatrix[i, attract_s], attract_scalefactor/active_sort_attract, attraction_range, aligning_range_s)
+
+                    #attract_contribution_s = attract(rel_bearing_ij[i, attract_s], DistanceMatrix[i, attract_s], attract_scalefactor, attraction_range, aligning_range_s)
 
                 rotation_s[i] = align_contribution_s + attract_contribution_s
 
         
-        ############################## large ##############################
+    ############################## large ##############################
 
     for i in range(N):
 
         if size[i] == 1:
 
             repel_l = np.where(repel_mask_l[i])[0]
+            repel_contribution = 0
 
             if repel_l.size > 0:
 
-                rotation_l[i] = repel(rel_bearing_ij[i, repel_l], DistanceMatrix[i, repel_l], repel_scalefactor_l)
+                if size[i] == 0:
+
+                    repel_contribution = repel(rel_bearing_ij[i, repel_l], DistanceMatrix[i, repel_l], repel_scalefactor_l*active_sort_repel)
+                
+                if size[i] == 1:
+
+                    repel_contribution = repel(rel_bearing_ij[i, repel_l], DistanceMatrix[i, repel_l], repel_scalefactor_l/active_sort_repel)
+
+                #rotation_l[i] = repel(rel_bearing_ij[i, repel_l], DistanceMatrix[i, repel_l], repel_scalefactor_l)
+                rotation_l[i] = repel_contribution
 
             else:
 
@@ -533,18 +555,34 @@ def update():
 
                 if align_l.size > 0:
 
-                    align_contribution_l = align(DistanceMatrix[i, align_l], angle[align_l], angle[i], align_scalefactor, aligning_range_l, repulsion_range_l)
+                    if size[i] == 0:
+
+                        align_contribution_l = align(DistanceMatrix[i, align_l], angle[align_l], angle[i], align_scalefactor*active_sort_align, aligning_range_l, repulsion_range_l)
+
+                    if size[i] == 1:
+
+                        align_contribution_l = align(DistanceMatrix[i, align_l], angle[align_l], angle[i], align_scalefactor/active_sort_align, aligning_range_l, repulsion_range_l)
+
+                    #align_contribution_l = align(DistanceMatrix[i, align_l], angle[align_l], angle[i], align_scalefactor, aligning_range_l, repulsion_range_l)
 
                 attract_l = np.where(attract_mask_l[i])[0]
                 attract_contribution_l = 0
 
                 if attract_l.size > 0:
 
-                    attract_contribution_l = attract(rel_bearing_ij[i, attract_l], DistanceMatrix[i, attract_l], attract_scalefactor, attraction_range, aligning_range_l)
+                    if size[i] == 0:
+
+                        attract_contribution_l = attract(rel_bearing_ij[i, attract_l], DistanceMatrix[i, attract_l], attract_scalefactor*active_sort_attract, attraction_range, aligning_range_l)
+
+                    if size[i] == 1:
+
+                        attract_contribution_l = attract(rel_bearing_ij[i, attract_l], DistanceMatrix[i, attract_l], attract_scalefactor/active_sort_attract, attraction_range, aligning_range_l)
+
+                    #attract_contribution_l = attract(rel_bearing_ij[i, attract_l], DistanceMatrix[i, attract_l], attract_scalefactor, attraction_range, aligning_range_l)
 
                 rotation_l[i] = align_contribution_l + attract_contribution_l
 
-            
+    
     mean_heading = angle + (rotation_s + rotation_l) * stepsize
 
     update_angle = np.random.normal(mean_heading, direction_SD)
@@ -563,7 +601,7 @@ def update():
 
     pos = np.mod(pos, D)
 
-    return pos, cos, sin
+    return pos, cos, sin#, rotation_s, rotation_l
 
 
 #print(update()[3])
@@ -604,10 +642,8 @@ def Animate_quiver(frame):
 
 anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
 
-anim.save(f"Hemelrijk, with weights, np.random.seed(12), 75_25 big_small, no active sorting.gif", dpi=400)
+#anim.save(f"Hemelrijk, with weights, np.random.seed(12), 75_25 big_small, no active sorting.gif", dpi=400)
 #plt.savefig("2DVicsekAnimation.png", dpi=400)
 plt.show()
-
-
 
 
