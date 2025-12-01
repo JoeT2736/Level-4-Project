@@ -294,7 +294,7 @@ import scipy.constants
 
 
 N=100  #Number of agents
-D=10  #Size of domain
+D=25  #Size of domain
 T=1000   #Total number of time steps (frames) in simulation
 stepsize=0.2 #seconds      #change in time between calculation of position and angle
 eta=0.15   #Random noise added to angles
@@ -330,10 +330,10 @@ risk_avoidance = 20#np.random.uniform(0, 40, size=N)
 np.random.seed(12)
 
 pos = np.random.uniform(0, D, size=(N, 2))
-angle = np.random.uniform(0, 2*np.pi, size=N)
+angle = np.random.uniform(0, np.pi/2, size=N)
 
-size_s = np.zeros(50)
-size_l = np.ones(50)
+size_s = np.zeros(25)
+size_l = np.ones(75)
 size = np.concatenate((size_s, size_l))
 
 
@@ -557,11 +557,11 @@ def update():
 
                     if size[i] == 0:
 
-                        align_contribution_l = align(DistanceMatrix[i, align_l], angle[align_l], angle[i], align_scalefactor*active_sort_align, aligning_range_l, repulsion_range_l)
+                        align_contribution_l = align(DistanceMatrix[i, align_l], angle[align_l], angle[i], align_scalefactor/active_sort_align, aligning_range_l, repulsion_range_l)
 
                     if size[i] == 1:
 
-                        align_contribution_l = align(DistanceMatrix[i, align_l], angle[align_l], angle[i], align_scalefactor/active_sort_align, aligning_range_l, repulsion_range_l)
+                        align_contribution_l = align(DistanceMatrix[i, align_l], angle[align_l], angle[i], align_scalefactor*active_sort_align, aligning_range_l, repulsion_range_l)
 
                     #align_contribution_l = align(DistanceMatrix[i, align_l], angle[align_l], angle[i], align_scalefactor, aligning_range_l, repulsion_range_l)
 
@@ -572,11 +572,11 @@ def update():
 
                     if size[i] == 0:
 
-                        attract_contribution_l = attract(rel_bearing_ij[i, attract_l], DistanceMatrix[i, attract_l], attract_scalefactor*active_sort_attract, attraction_range, aligning_range_l)
+                        attract_contribution_l = attract(rel_bearing_ij[i, attract_l], DistanceMatrix[i, attract_l], attract_scalefactor/active_sort_attract, attraction_range, aligning_range_l)
 
                     if size[i] == 1:
 
-                        attract_contribution_l = attract(rel_bearing_ij[i, attract_l], DistanceMatrix[i, attract_l], attract_scalefactor/active_sort_attract, attraction_range, aligning_range_l)
+                        attract_contribution_l = attract(rel_bearing_ij[i, attract_l], DistanceMatrix[i, attract_l], attract_scalefactor*active_sort_attract, attraction_range, aligning_range_l)
 
                     #attract_contribution_l = attract(rel_bearing_ij[i, attract_l], DistanceMatrix[i, attract_l], attract_scalefactor, attraction_range, aligning_range_l)
 
