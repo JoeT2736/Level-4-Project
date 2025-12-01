@@ -19,7 +19,7 @@ fake_wall = 1
 epsilon = 1e-6
 v_SD = 0.03     # 0.03m/s
 direction_SD = np.pi/72
-turning_rate = (np.pi/2)*stepsize #pi/2 rad/s
+turning_rate = (np.pi/2) #pi/2 rad/s
 repulsion_range_s = 0.3   #meters  for small fish
 repulsion_range_l = 0.6   #m  for large fish
 attraction_range = 5    #m  
@@ -69,99 +69,107 @@ def speed():
     return np.random.normal(vel0, scale=v_SD)
 
 
+def circ_mean(angles):
+    sin = np.mean(np.sin(angles))
+    cos = np.mean(np.cos(angles))
+    return np.arctan2(sin, cos)
+
+
+def angle_wrap(a):
+    """Wrap to [-pi, pi]."""
+    return (a + np.pi) % (2 * np.pi) - np.pi
+
+
+def angular_difference_signed(target, source):
+    """Signed smallest angle target - source in [-pi, pi]."""
+    return angle_wrap(target - source)
+
+
 def update():
 
     global pos
     global angle
 
-    Meandirection = angle
-    noise = np.random.uniform(-eta/2, eta/2, size=(N))
-    total_wall_torque = np.zeros(N)
-    repel_angle = np.zeros(N)
-    repel_torque = np.zeros(N)
-    align_angle = np.zeros(N)
-    align_torque = np.zeros(N)
-    attract_angle = np.zeros(N)
-    attract_torque = np.zeros(N)
-    direction_difference = np.zeros(N)
-
     DistanceMatrix = scipy.spatial.distance.pdist(pos)  #Scipy function to calculate distance between two agents
     DistanceMatrix = scipy.spatial.distance.squareform(DistanceMatrix)   #matrix of form [i, j] => distance between agents i and j
         #returns the distance of each agent to all other agents, the array is of size [N, N]
 
+    vec_ij = pos[None, :, :] - pos[:, None, :]  
+
+    dist = np.linalg.norm(vec_ij, axis=2)  
+
+    np.fill_diagonal(dist, np.inf)
+
+    bearing_ij = np.arctan2(vec_ij[:, :, 1], vec_ij[:, :, 0])
+    rel_bearing_ij = angle_wrap(bearing_ij - angle[:, None])
+    
+    repel_mask_distance_s = dist <= repulsion_range_s
+    align_mask_distance_s = (dist > repulsion_range_s) & (dist <= aligning_range_s)
+    attract_mask_distance_s = (dist > aligning_range_s) & (dist <= attraction_range)
+
+    rotation = np.zeros(N)
+
+
     for i in range(N):
 
-        #Distance_Mask = DistanceMatrix <= R #Gives array of True/False, if distance less than R, this returns True
-        
-        #Vector of boid i to all others (change in x and y)
-        vector = pos - pos[i]
-
-        #Direction of i
-        direction_i = np.array([np.cos(angle[i]), np.sin(angle[i])])
-
-        #size of vector from boid i to each other boid
-        vector_norm = np.linalg.norm(vector, axis=1)
-        vector_norm[vector_norm == 0] = 1e-9   #No divide by zero in next step 
-        direction_vectors = vector / vector_norm[:, None]
-
-        #
-        dots = np.sum(direction_vectors * direction_i, axis=1)
-        dots = np.clip(dots, -1, 1)
-        angle_difference = np.arccos(dots)
-        angle_difference2 = np.arctan(dots)
-
-        repel_mask_distance_s = DistanceMatrix <= repulsion_range_s
-        align_mask_distance_s = np.logical_and(DistanceMatrix <= aligning_range_s, DistanceMatrix > repulsion_range_s) 
-        attract_mask_distance_s = np.logical_and(DistanceMatrix <= attraction_range, DistanceMatrix > aligning_range_s)
-
-
-        #Change mask values to True for when DistanceMatrix value is the distance of an agent to itself
-        for j in range (N):
-            align_mask_distance_s[:, j][j] = True
-            #attract_mask_distance_s[:, j][j] = True   
-
-
-        #repel_angle[i] = (angle_difference[repel_mask_distance_s[:, i]])
 
         ##### repulsion #####
-        repel_angle[i] = np.sum(angle_difference[repel_mask_distance_s[:, i]])
+        repel_idx = np.where(repel_mask_distance_s[i])[0]
 
-        if np.sum(repel_mask_distance_s[:, i]) > 0:
-            if repel_angle[i] > np.pi/2:
-                repel_torque[i] = -turning_rate
-            if repel_angle[i] < np.pi/2:
-                repel_torque[i] = turning_rate
-        else: 
-            repel_torque[i] = 0
+        if repel_idx.size > 0:
+            
+            signs = np.sign(rel_bearing_ij[i, repel_idx])
 
+            signs[signs == 0] = np.random.choice([-1, 1], size=(signs == 0).sum())
 
-        ##### alignment #####
-        if np.sum(align_mask_distance_s[:, i]) > 0:
-            direction_difference = angle - angle[i]
-            align_angle[i] = np.sum(direction_difference[align_mask_distance_s[:, i]])
-            align_torque[i] = turning_rate * align_angle[i]     #times by 0.7 or less if they still spin about
+            repel_rotate = -turning_rate * signs
+
+            rotation[i] = np.mean(repel_rotate)
+
         else:
-            align_torque[i] = 0
 
-        
-        ##### attraction #####
-        if np.sum(attract_mask_distance_s[:, i]) > 0:
-            attract_angle[i] = np.sum(angle_difference2[attract_mask_distance_s[:, i]])
-            attract_torque[i] = turning_rate * attract_angle[i]
-        else:
-            attract_torque[i] = 0
+            ##### alignment #####
+            align_idx = np.where(align_mask_distance_s[i])[0]
+            algin_contribution = 0
 
+            if align_idx.size > 0:
+
+                angle_difference = angular_difference_signed(angle[align_idx], angle[i])
+
+                align_rotate = turning_rate * angle_difference
+
+                algin_contribution = np.mean(align_rotate)
             
 
-        Meandirection[i] += repel_torque[i] + align_torque[i] + attract_torque[i]
-        
+            ##### attraction #####
+            attract_idx = np.where(attract_mask_distance_s[i])[0]
+            attract_contribution = 0
+
+            if attract_idx.size > 0:
+
+                heading_vals = np.cos(rel_bearing_ij[i, attract_idx])
+
+                sign_to_j = np.sign(rel_bearing_ij[i, attract_idx])
+                sign_to_j[sign_to_j == 0] = 1
+
+                attract_rotate = turning_rate * heading_vals * sign_to_j
+                #w_attr = 1.0 / (dist[i, attract_idx] + epsilon)**2
+
+                attract_contribution = np.mean(attract_rotate)# * w_attr)
+
+            rotation[i] = algin_contribution + attract_contribution
+
+
+        #rotation[i] = np.clip(rotation[i], -10*turning_rate, 10*turning_rate)
 
 
         #total_wall_torque[i] = wall_force_vector(pos[i], Meandirection[i])
     
     #Meandirection = Meandirection + total_wall_torque * force_scale
 
-    update_angle = np.random.normal(Meandirection, direction_SD)
+    mean_heading = angle + rotation * stepsize
+
+    update_angle = np.random.normal(mean_heading, direction_SD)
 
     cos = np.cos(update_angle)
     sin = np.sin(update_angle)
@@ -173,17 +181,11 @@ def update():
     pos[:, 0] += vx
     pos[:, 1] += vy
 
-    #pos[:, 0] = np.clip(pos[:, 0], 0.0, D)
-    #pos[:, 1] = np.clip(pos[:, 1], 0.0, D)
+    angle[:] = update_angle
 
-    angle = update_angle
+    pos[:] = np.mod(pos, D)
 
-    pos = np.mod(pos, D)
-
-    return pos, cos, sin, attract_mask_distance_s, np.sum(angle_difference[attract_mask_distance_s[:, 4]])
-
-#print((update()[3]))
-#print((update()[4]))
+    return pos, cos, sin, rotation
 
 
 
@@ -205,22 +207,26 @@ ax.set_aspect('equal', adjustable='box')
 
 
 def Animate_quiver(frame):
-    pos, cos, sin, k, m = update()
+    pos, cos, sin, r = update()
     animated_plot_quiver.set_offsets(pos)
     animated_plot_quiver.set_UVC(cos, sin)
+    #print(r/(np.pi*2))
     return (animated_plot_quiver,)
 #Animate_quiver
 
+
 anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
 
-anim.save(f"Hemelrijk, no LOS mask.gif", dpi=400)
+#anim.save(f"Hemelrijk, no LOS mask.gif", dpi=400)
 #plt.savefig("2DVicsekAnimation.png", dpi=400)
 plt.show()
 '''
 
 
 
+
 ####### With LOS ######
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -228,8 +234,8 @@ import scipy.spatial
 import scipy.constants
 
 
-N=5  #Number of agents
-D=5  #Size of domain
+N=40  #Number of agents
+D=15  #Size of domain
 T=1000   #Total number of time steps (frames) in simulation
 stepsize=0.2 #seconds      #change in time between calculation of position and angle
 eta=0.15   #Random noise added to angles
@@ -241,8 +247,8 @@ fake_wall = 1
 epsilon = 1e-6
 v_SD = 0.03     # 0.03m/s
 direction_SD = np.pi/72
-turning_rate_attraction = (np.pi/2)/80
-turning_rate = (np.pi/2)/2 #pi/2 rad/s
+turning_rate_attraction = (np.pi/2)
+turning_rate = (np.pi/2) #pi/2 rad/s
 repulsion_range_s = 0.3   #meters  for small fish
 repulsion_range_l = 0.6   #m  for large fish
 attraction_range = 5    #m  
@@ -296,20 +302,21 @@ def speed():
     return np.random.normal(vel0, scale=v_SD)
 
 
-
-def zones():
-    ##### Area of zones to draw on plot #####
-
-    repel_circle = np.pi * repulsion_range_s**2
-    repel_zone = repel_circle * np.pi/repel_LOS
-
-    #centre zone to centre of boid -> angle zone to direction of boid
-
-    repel_zones = np.full(N, fill_value=repel_zone)
+def circ_mean(angles):
+    sin = np.mean(np.sin(angles))
+    cos = np.mean(np.cos(angles))
+    return np.arctan2(sin, cos)
 
 
+def angle_wrap(a):
+    """Wrap to [-pi, pi]."""
+    return (a + np.pi) % (2 * np.pi) - np.pi
 
-    return
+
+def angular_difference_signed(target, source):
+    """Signed smallest angle target - source in [-pi, pi]."""
+    return angle_wrap(target - source)
+
 
 
 def update():
@@ -317,129 +324,96 @@ def update():
     global pos
     global angle
 
-    Meandirection = angle
-    noise = np.random.uniform(-eta/2, eta/2, size=(N))
-    total_wall_torque = np.zeros(N)
-    repel_angle = np.zeros(N)
-    repel_torque = np.zeros(N)
-    align_angle = np.zeros(N)
-    align_torque = np.zeros(N)
-    attract_angle = np.zeros(N)
-    attract_torque = np.zeros(N)
-    direction_difference = np.zeros(N)
-    #repel_mask_LOS = np.zeros((N, N))
-    #align_mask_LOS = np.zeros((N, N))
-    #attract_mask_LOS = np.zeros((N, N))
-    direction_i = np.zeros((N, 2))
-    dots = np.zeros((N, N))
-    angle_difference = np.zeros((N, N))
-    angle_difference2 = np.zeros((N, N))
-    vector = np.zeros((N, N, 2))
-    vector_norm = np.zeros(N)
-    direction_vectors = np.zeros((N, N, 2))
+    #angle_difference = np.zeros((N, N))
     
 
     DistanceMatrix = scipy.spatial.distance.pdist(pos)  #Scipy function to calculate distance between two agents
     DistanceMatrix = scipy.spatial.distance.squareform(DistanceMatrix)   #matrix of form [i, j] => distance between agents i and j
         #returns the distance of each agent to all other agents, the array is of size [N, N]
 
+    vec_ij = pos[None, :, :] - pos[:, None, :]  
+
+    dist = np.linalg.norm(vec_ij, axis=2)  
+
+    np.fill_diagonal(dist, np.inf)
+
+    bearing_ij = np.arctan2(vec_ij[:, :, 1], vec_ij[:, :, 0])
+    rel_bearing_ij = angle_wrap(bearing_ij - angle[:, None])
+    
+    repel_mask_distance_s = dist <= repulsion_range_s
+    align_mask_distance_s = (dist > repulsion_range_s) & (dist <= aligning_range_s)
+    attract_mask_distance_s = (dist > aligning_range_s) & (dist <= attraction_range)
+
+    repel_mask_LOS = np.abs(rel_bearing_ij) <= (repel_LOS/2)
+    align_mask_LOS = (np.abs(rel_bearing_ij) > (repel_LOS/2)) & (np.abs(rel_bearing_ij)  <= (np.deg2rad(90) + repel_LOS/2))
+    attract_mask_LOS = np.abs(rel_bearing_ij) <= (attract_LOS/2)
+
+    repel_mask_s = repel_mask_distance_s & repel_mask_LOS
+    align_mask_s = align_mask_distance_s & align_mask_LOS
+    attract_mask_s = attract_mask_distance_s & attract_mask_LOS
+
+    rotation = np.zeros(N)
+
     for i in range(N):
 
-        #Distance_Mask = DistanceMatrix <= R #Gives array of True/False, if distance less than R, this returns True
-        
-        #Vector of boid i to all others (change in x and y)
-        vector[i] = pos - pos[i]
-        
-        #Direction of i
-        direction_i[i] = np.array([np.cos(angle[i]), np.sin(angle[i])])
-        
-        #size of vector from boid i to each other boid
-        vector_norm[i] = np.linalg.norm(vector[i])
-        direction_vectors[i] = vector[i] / vector_norm[i]
-
-        
-        #values from 0 to 1 (rate of full turn needed for boid to align with another) = dots
-        dots[i] = np.sum(direction_vectors[i] * direction_i[i], axis=1)
-        dots[i] = np.clip(dots[i], -1, 1)   #incase gives value above/below 1 or -1 (if above/below set equal to 1 or -1)
-        angle_difference[i] = np.arccos(dots[i])      #used for LOS angles
-        angle_difference2[i] = np.arctan(dots[i])     #used for attract angle
-        
-        repel_mask_distance_s = DistanceMatrix <= repulsion_range_s
-        align_mask_distance_s = np.logical_and(DistanceMatrix <= aligning_range_s, DistanceMatrix > repulsion_range_s) 
-        attract_mask_distance_s = np.logical_and(DistanceMatrix <= attraction_range, DistanceMatrix > aligning_range_s)
-
-        repel_mask_LOS = angle_difference <= repel_LOS/2
-        align_mask_LOS = np.logical_and(angle_difference > repel_LOS/2, angle_difference <= np.deg2rad(90) + repel_LOS/2)
-        attract_mask_LOS = angle_difference <= attract_LOS/2
-
-
-        repel_mask_s = np.logical_and(repel_mask_distance_s, repel_mask_LOS)
-        align_mask_s = np.logical_and(align_mask_distance_s, align_mask_LOS)
-        attract_mask_s = np.logical_and(attract_mask_distance_s, attract_mask_LOS)
-
-        #Change mask values to True for when DistanceMatrix value is the distance of an agent to itself
-        #for j in range (N):
-        #    repel_mask_s[:, j][j] = True
-        #    align_mask_s[:, j][j] = True
-        #    attract_mask_s[:, j][j] = True
-
-
         ##### repulsion #####
-        repel_angle[i] = np.mean(angle_difference[repel_mask_s[:, i]])
+        repel_idx = np.where(repel_mask_s[i])[0]
 
-        if np.sum(repel_mask_s[:, i]) > 0:
-            if repel_angle[i] >= np.pi/2:
-                repel_torque[i] = -turning_rate
-            if repel_angle[i] < np.pi/2:
-                repel_torque[i] = turning_rate
-        else: 
-            repel_torque[i] = 0
+        if repel_idx.size > 0:
+            
+            signs = np.sign(rel_bearing_ij[i, repel_idx])
 
+            signs[signs == 0] = np.random.choice([-1, 1], size=(signs == 0).sum())
 
-        ##### alignment #####
-        if np.sum(align_mask_s[:, i]) > 0:
-            direction_difference = angle - angle[i]
-            align_angle[i] = np.mean(direction_difference[align_mask_s[:, i]])
-            align_torque[i] = turning_rate * align_angle[i]     #times by 0.7 or less if they still spin about
+            repel_rotate = -turning_rate * signs
+
+            rotation[i] = np.mean(repel_rotate)
+
         else:
-            align_torque[i] = 0
 
-        
-        ##### attraction #####
-        if np.sum(attract_mask_distance_s[:, i]) > 0:
-            attract_angle[i] = np.mean(angle_difference2[attract_mask_distance_s[:, i]])
-            attract_torque[i] = turning_rate_attraction * attract_angle[i]
-        else:
-            attract_torque[i] = 0
+            ##### alignment #####
+            align_idx = np.where(align_mask_s[i])[0]
+            algin_contribution = 0
+
+            if align_idx.size > 0:
+
+                angle_difference = angular_difference_signed(angle[align_idx], angle[i])
+
+                align_rotate = turning_rate * angle_difference
+
+                algin_contribution = np.mean(align_rotate)
+            
+
+            ##### attraction #####
+            attract_idx = np.where(attract_mask_s[i])[0]
+            attract_contribution = 0
+
+            if attract_idx.size > 0:
+
+                heading_vals = np.cos(rel_bearing_ij[i, attract_idx])
+
+                sign_to_j = np.sign(rel_bearing_ij[i, attract_idx])
+                sign_to_j[sign_to_j == 0] = 1
+
+                attract_rotate = turning_rate * heading_vals * sign_to_j
+                #w_attr = 1.0 / (dist[i, attract_idx] + epsilon)**2
+
+                attract_contribution = np.mean(attract_rotate)# * w_attr)
+
+            rotation[i] = algin_contribution + attract_contribution
 
 
-        #Meandirection[i] += repel_torque[i] 
-        #Meandirection[i] += align_torque[i] 
-        #Meandirection[i] += attract_torque[i]
+        #rotation[i] = np.clip(rotation[i], -10*turning_rate, 10*turning_rate)
 
-        Meandirection[i] += np.mean(repel_torque[i] + align_torque[i] + attract_torque[i])
-
-
-
-        ##### Area of zones to draw on plot #####
-        repel_circle = np.pi * repulsion_range_s**2
-        repel_zone = repel_circle * np.pi/repel_LOS
-
-        #centre zone to centre of boid -> angle zone to direction of boid
-
-        repel_zones = np.full(N, fill_value=repel_zone)
-
-        repel_zones_cetre_positions = np.array(repel_zones, pos[0], pos[1])
-
-        #repel_zones_direction = np.array(repel_zones)
-        #########################################
     
 
         #total_wall_torque[i] = wall_force_vector(pos[i], Meandirection[i])
     
-    #Meandirection = Meandirection + total_wall_torque * force_scale
 
-    update_angle = np.random.normal(Meandirection, direction_SD)
+    mean_heading = angle + rotation * stepsize
+
+    update_angle = np.random.normal(mean_heading, direction_SD)
+
 
     cos = np.cos(update_angle)
     sin = np.sin(update_angle)
@@ -489,9 +463,9 @@ def Animate_quiver(frame):
     return (animated_plot_quiver,)
 
 
-#anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
+anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T, blit = False, repeat=False)
 
-#anim.save(f"Hemelrijk, with LOS mask.gif", dpi=400)
+anim.save(f"Hemelrijk, with LOS mask.gif", dpi=400)
 #plt.savefig("2DVicsekAnimation.png", dpi=400)
 plt.show()
 
