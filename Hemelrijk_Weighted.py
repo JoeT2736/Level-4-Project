@@ -1,6 +1,6 @@
 
 
-'''
+
 ####### With LOS ######
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,8 +10,8 @@ import scipy.constants
 
 
 N=100  #Number of agents
-D=20  #Size of domain
-T=1000   #Total number of time steps (frames) in simulation
+D=20 #Size of domain
+T=3000   #Total number of time steps (frames) in simulation
 stepsize=0.2 #seconds      #change in time between calculation of position and angle
 eta=0.15   #Random noise added to angles
 v0=0.3   # 0.3m/s     #Starting velocity
@@ -41,12 +41,15 @@ attract_scalefactor = 1
 active_sort_repel = 2
 active_sort_align = 2
 active_sort_attract = 2
-risk_avoidance = 20#np.random.uniform(0, 40, size=N)
+risk_avoidance = 1#20#np.random.uniform(0, 40, size=N)
 
-np.random.seed(3)
+#np.random.seed(3)
 
-pos = np.random.uniform(1, 3.5, size=(N, 2))
-angle = np.random.uniform(0, np.pi/2, size=N)
+#pos = np.random.uniform(1, 3.5, size=(N, 2))
+#angle = np.random.uniform(0, np.pi/2, size=N)
+
+pos = np.random.uniform(0, D, size=(N, 2))
+angle = np.random.uniform(0, np.pi*2, size=N)
 
 size_s = np.zeros(25)
 size_l = np.ones(75)
@@ -190,7 +193,7 @@ def predator_interaction(bearing, distance_array, scale_factor):
 p_N = 1
 
 p_pos = np.random.uniform(15, 17, size=(p_N, 2))
-p_angle = np.random.unifrom(-np.pi, np.pi, size=p_N)
+p_angle = np.random.uniform(-np.pi, np.pi, size=p_N)
 
 p_v0 = 0.6
 p_v_SD = 0.06
@@ -198,10 +201,39 @@ p_interaction_range = 8
 p_LOS = 320
 
 
-def update():
+CoG_distances = []     # stores avg distance of boids to their CoG each step
+simulation_step = 0    # step counter
+
+
+def Centre_of_grav_dist():
+    CoG = np.mean(pos, axis=0)                     # centre of gravity
+    distances = np.linalg.norm(pos - CoG, axis=1)  # distance of each boid to CoG
+    return np.mean(distances)
+
+
+def update(ratios):
 
     global pos
     global angle
+    global simulation_step
+    global size
+
+    results = []
+    for r in ratios:
+        # r is fraction of small boids (0..1)
+        small_count = int(round(N * r))
+        # assign small indices randomly so small and large are distributed
+        indices = np.arange(N)
+        np.random.shuffle(indices)
+        small_idx = indices[:small_count]
+        size = np.ones(N, dtype=int)   # 1 = large, 0 = small
+        size[small_idx] = 0
+
+        # initialize state
+        pos = pos.copy()
+        angle = angle.copy()
+
+
 
     DistanceMatrix = scipy.spatial.distance.pdist(pos)  #Scipy function to calculate distance between two agents
     DistanceMatrix = scipy.spatial.distance.squareform(DistanceMatrix)   #matrix of form [i, j] => distance between agents i and j
@@ -244,25 +276,25 @@ def update():
 
     #for predators 
     #####################################################################
-    p_Distance_matrix = scipy.spatial.distance.cdist(pos, p_pos)
-    p_Distance_matrix = scipy.spatial.distance.squareform(p_Distance_matrix)
+    #p_Distance_matrix = scipy.spatial.distance.cdist(pos, p_pos)
+    #p_Distance_matrix = scipy.spatial.distance.squareform(p_Distance_matrix)
 
-    p_vec_ij = pos[None, :, :] - p_pos[:, None, :]
-    p_dist = np.linalg.norm(p_vec_ij, axis=2)
+    #p_vec_ij = pos[None, :, :] - p_pos[:, None, :]
+    #p_dist = np.linalg.norm(p_vec_ij, axis=2)
 
-    np.fill_diagonal(p_dist, np.inf)
+    #np.fill_diagonal(p_dist, np.inf)
 
-    p_bearing_ij = np.arctan2(p_vec_ij[:, :, 1], p_vec_ij[:, :, 0])
-    p_rel_bearing_ij = angle_wrap(p_bearing_ij - angle[:, None])
+    #p_bearing_ij = np.arctan2(p_vec_ij[:, :, 1], p_vec_ij[:, :, 0])
+    #p_rel_bearing_ij = angle_wrap(p_bearing_ij - angle[:, None])
 
-    pred_distance_mask = p_dist <= p_interaction_range
-    fish_distance_mask = p_dist <= attraction_range
+    #pred_distance_mask = p_dist <= p_interaction_range
+    #fish_distance_mask = p_dist <= attraction_range
 
-    pred_LOS_mask = np.abs(p_rel_bearing_ij) <= p_LOS/2
-    fish_LOS_mask = np.abs(p_rel_bearing_ij) <= attract_LOS/2
+    #pred_LOS_mask = np.abs(p_rel_bearing_ij) <= p_LOS/2
+    #fish_LOS_mask = np.abs(p_rel_bearing_ij) <= attract_LOS/2
 
-    pred_mask = pred_distance_mask & pred_LOS_mask
-    fish_mask = fish_distance_mask & fish_LOS_mask
+    #pred_mask = pred_distance_mask & pred_LOS_mask
+    #fish_mask = fish_distance_mask & fish_LOS_mask
 
     ######################################################################
 
@@ -409,8 +441,6 @@ def update():
 
                 rotation_l[i] = (0 if align_l.size == 0 else np.mean(align_contribution_l)) + (0 if attract_l.size == 0 else np.mean(attract_contribution_l))
 
-        
-
     
     mean_heading = angle + (rotation_s + rotation_l) * stepsize #+ rotation_from_pred) * stepsize
 
@@ -433,9 +463,66 @@ def update():
 
     pos = np.mod(pos, D)
 
-    return pos, cos, sin, p_pos, p_cos, p_sin
+    #CoG_distances.append(Centre_of_grav_dist())
+    #simulation_step += 1
+
+    return pos, cos, sin
 
 
+
+def Nearest_Neigbour_Dist(ratio):
+
+    distance = []
+
+    for _ in range(T):
+
+        positions = update(ratio)[0]
+        length = scipy.spatial.distance.pdist(positions)
+        length = scipy.spatial.distance.squareform(length)
+
+        min_length = np.min(length, axis=1)
+
+        distance.append(np.mean(min_length))
+
+    return distance
+
+
+ratio_of_agents = np.array([0, 0.25, 0.5, 0.75, 1], dtype=int)
+
+
+print(Nearest_Neigbour_Dist(ratio_of_agents))
+
+fig, ax = plt.subplots(figsize=(7, 7))
+
+plt.plot(ratio_of_agents, Nearest_Neigbour_Dist(ratio_of_agents), linestyle='-', label=f'N={N}', marker='s')
+
+ax.set_xlabel('ratio of small agents', fontsize=14)
+ax.set_ylabel('d (m)', fontsize=14)
+ax.set_title('Average Nearest Neighbour distance')
+ax.tick_params(direction='out', length=4, width=1, labelsize=12, top=False, right=False)
+ax.legend(fontsize=14)
+#ax.minorticks_on()
+#plt.savefig(f"Polar Order Parameter, periodic boundary conditions Plot.png", dpi=400)
+plt.show()
+
+
+
+'''
+
+# After simulation is complete, plot CoG distances for final 1000 steps
+if len(CoG_distances) >= 1000:
+    last_1000 = CoG_distances[-1000:]
+    plt.figure(figsize=(7,4))
+    plt.plot(last_1000)
+    plt.title("Average Distance to Centre of Gravity (last 1000 steps)")
+    plt.xlabel("Simulation Step (last 1000)")
+    plt.ylabel("Mean Distance to CoG")
+    plt.grid(True)
+    plt.show()
+else:
+    print("Not enough simulation steps to compute last 1000 CoG distances.")
+
+'''
 
 
 fig, ax = plt.subplots()
@@ -450,7 +537,7 @@ def qlook(A, B):
 animated_plot_quiver = ax.quiver(pos[:, 0], pos[:, 1], np.cos(angle), np.sin(angle), clim=[-np.pi, np.pi], 
                                  angles = 'xy',
                                  scale_units = 'xy',
-                                 scale = qlook(1.5, 1),
+                                 #scale = qlook(1.5, 1),
                                  pivot='mid', 
                                  color = qlook('black', 'green'), 
                                  )
@@ -478,7 +565,7 @@ ax.set_aspect('equal', adjustable='box')
 
 
 def Animate_quiver(frame):
-    pos, cos, sin, p_pos, p_cos, p_sin = update()
+    pos, cos, sin = update()
     animated_plot_quiver.set_offsets(pos)
     animated_plot_quiver.set_UVC(cos, sin)
     #animated_plot_quiver_pred.set_offsets(p_pos)
@@ -493,14 +580,14 @@ anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T,
 #plt.savefig("2DVicsekAnimation.png", dpi=400)
 plt.show()
 
-'''
+
 
 
 
 
 ######################### averages plots #########################
 
-
+'''
 ####### With LOS ######
 import numpy as np
 import matplotlib.pyplot as plt
@@ -906,12 +993,12 @@ ax.legend(fontsize=14)
 #ax.minorticks_on()
 #plt.savefig(f"Polar Order Parameter, periodic boundary conditions Plot.png", dpi=400)
 plt.show()
+'''
 
 
 
 
-
-
+'''
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -919,7 +1006,7 @@ import scipy.spatial
 
 # --- Parameters (kept mostly from your original) ---
 N = 100
-D = 10.0                # domain size (periodic). Set to a reasonable finite value.
+D = 99999999999                # domain size (periodic). Set to a reasonable finite value.
 total_steps = 3000      # total simulation steps
 keep_last = 1000        # keep last 1000 timesteps for averaging
 stepsize = 0.2
@@ -953,7 +1040,7 @@ risk_avoidance = 20.0
 epsilon = 1e-9
 
 # seed for reproducibility
-np.random.seed(3)
+#np.random.seed(3)
 
 # initial positions and headings
 pos0 = np.random.uniform(1, 3.5, size=(N, 2))
@@ -1054,8 +1141,8 @@ def update(ratios):
                     if neighbors.size > 0:
                         contributions = []
                         for j in neighbors:
-                            if size[j] == 0:
-                                sf = repel_scalefactor_s / active_sort_repel
+                            if size[j] == 0:    #calculate scale factor based on the size of the neighbour
+                                sf = repel_scalefactor_s / active_sort_repel    
                             else:
                                 sf = repel_scalefactor_s * active_sort_repel * risk_avoidance
                             contributions.append(repel(rel_bearing_ij[i, j], dist[i, j], sf))
@@ -1128,17 +1215,33 @@ def update(ratios):
 
     return results
 
+def avg_dist_C_mult(ratios, runs):
+
+    avg = []
+    for l in range(runs):
+        print(f"run {l+1}/{runs}")
+        vals = update(ratios)
+        avg.append(vals)
+
+    avg = np.array(avg)
+
+    means = avg.mean(axis=0)
+    std = avg.std(axis=0)
+
+    return means, std
+
 
 # run
 ratio_of_agents = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
-d_vals = update(ratio_of_agents)
-print("average distances:", d_vals)
+xs, errs = avg_dist_C_mult(ratio_of_agents, 10)
+print("average distances:", xs)
 
 # quick plot
 plt.figure(figsize=(7,6))
-plt.plot(ratio_of_agents, d_vals, marker='s', linestyle='-')
+plt.errorbar(ratio_of_agents, xs, yerr=errs, marker='s', linestyle='-')
 plt.xlabel('ratio of small agents')
-plt.ylabel('average distance to CoG (m)')
-plt.title('Average distance to centre of gravity (last 1000 steps)')
+plt.ylabel('average distance (m)')
+plt.title('Average distance to centre of gravity')
 plt.grid(True, alpha=0.3)
 plt.show()
+'''
