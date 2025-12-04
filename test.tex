@@ -289,23 +289,147 @@ Nonspherical shapes in fish schools (Cullen et al. 1965, Partridge et al. 1983) 
 
 \subsection{Camperi et al. 2012}
 
-Each agent interacts with a fixed number of neighbours irrespective of their distance, creating a more stable/robust structure. => During an attack, topological interactions give rise to less stragglers. (Ballerini et al 2008)
+Each agent interacts with a fixed number of neighbours irrespective of their distance, creating a more stable/robust structure. $\rightarrow$ During an attack, topological interactions give rise to less stragglers. (Ballerini et al 2008)
 
-Distribution of neighbours to a given strongly agent is anisotropic, they are located far more to the side than the in the direction of motion => interactions have a topological nature. The density of the flock is not dependent on the number of interacting neighbours, though there metric distance does. When the mean nearest neighbour is further away, the metric radius of interaction increases. => Birds in a flock will always interact with the same number of neighbours, disregarding their distance. ($7\pm1.5$). Interaction range smaller than the range influence.
+Distribution of neighbours to a given strongly agent is anisotropic, they are located far more to the side than the in the direction of motion $\rightarrow$ interactions have a topological nature. The density of the flock is not dependent on the number of interacting neighbours, though their metric distance does. When the mean nearest neighbour is further away, the metric radius of interaction increases. => Birds in a flock will always interact with the same number of neighbours, disregarding their distance. ($7\pm1.5$). Interaction range smaller than the range influence.
 
 section 2.2 
 
 
 
+\section{week 3}
+
+\subsection{Reuter 1994} \cite{reuter_selforganization_1994}
+
+Fishes new direction and speed depend on all visible fish, weighted according to their distance. Model also uses a repulsion force. 
+
+Model assumption:
+No leaders =$>$ identical behaviours
+Direction and velocity are a result of its neighbours + noise
+No external stimuli
+Agent not in vision =$>$ does not affect other agent
+Attraction if agents are far away
+Parallel orientation
+Repulsion if agents are too close
+
+New direction of fish is based on that of all visible fish, and weighted according to the reciprocal of their distance, which obtains a weight factor for all of the neighbours. If the fish get too close, an angle of $\pm$36 is added to its direction depending on which will give a new direction closer to that of the neighbour. All changes to speed and direction are associated with a random element with normal distribution of standard deviation 5$\textdegree$ and 1 lenght unit per time step.
+
+
+
+Quantifying movement of the school:
+Parallel alignment of school =$>$ i.e. polarisation =$>$ values of 0 (parallel) and 90 (random orientation) =$>$ increases for more fish
+Compactness =$>$ Expanse =$>$ average distance of agent to the schools centre of mass =$>$ increases for more fish, more slowly than polarisation
+Nearest neighbour distance =$>$ average distance of each agent to their nearest neighbour =$>$ slight decrease (almost constant) for increasing fish
+
+When schools $\approx$30 fish, the four nearest neighbours contribute $\approx$ 40$\%$ to the decision of the fishes new direction. Decreases to $<$1$\%$ for the furthest fish. 
+
+When using only a small number of set neighbours =$>$ smaller groups can split from the larger group as they begin to 'ignore' the motion of those further away.
+
+
+\section{week 4}
+
+\subsection{Aoki 1982} \cite{Aoki_1982}
+
+Three behaviours $\rightarrow$ approach, avoidance, parallel orientation.
+
+Speed and direction are stochastic variables and are mutually independent. interactions between agents are restricted to only in direction, velocity component determined individually of other agents.
+
+velocity distribution described as a gamma distribution, at each time step a new 'random' value is given to each agent.
+Direction has a normal distribution, weighted where the ith fish will move mostly in the direction of the jth fish that is most inline with itself. If fish get too close, the ith fish will change its direction by $\pm$ 90$\textdegree$, depending on which is closer to the direction of the jth fish. If no fish are in the interaction range of the fish or in its line of sight, it will change its direction at random with uniform probability to 'find' a neighbour. However, if there is a fish in the line of sight, but out of the interaction range, it will still change is direction based on that fish, but at a rate that is weighted depending on the distance to that fish.
+
+\subsection{Huth $\&$ Wissel 1992} \cite{HUTH_1992}
+
+Uses the same assumptions and update rules as Aoki, but if a fish detects no neighbours, it will now turn 180$\textdegree$ at a given time with some probability distribution. Direction more weighted to closest neighbour than to which is more closely aligned.
+
+
+\subsection{Lopez 2012} \cite{lopez_2012}
+
+Preferred direction at each time step,
+% Requires: \usepackage{amsmath}
+\begin{equation}
+    \begin{aligned}[b]
+        & d_i(t+1) = \frac{1}{n(t)} \sum_{i \in N_i(t)} w(|r_{ij}(t)|) \, d_j(t) {}\\
+        & + \frac{1}{n(t)} \sum_{i \in N_i(t)} f(|r_{ij}(t)|) \frac{r_{ij}(t)}{|r_{ij}(t)|} + \eta_i(t).
+    \end{aligned}
+    \label{eq:placeholder_label}
+\end{equation}
+
+First term for aligning direction to that of neighbours, second is for repulsion and attraction. w(r) and f(r) are the relative range and weights of the attraction, repulsion and alignment terms.
+
+
+\subsection{Hemelrijk 2005} \cite{hemelrijk_2005}
+
+
+Same basic assumptions as Aoki. Agents have a rate of change of direction, so as to be more 'life like'. If an agent finds a neighbour in the repulsion zone, then it changes direction by $\pm$ its rate of change of direction. For agents to align, the difference of the direction of an agent and its neighbour are multiplied by this rate of change. These give rates of repulsion, attraction and aligning, which depend on distance to the neighbour, and the behavioural reaction is calculated as the weighted sum. With more than one neighbour, the turning rate is the average of its response to each neighbour separately.
+
+The body of the fish is represented as a line segment, and the repulsion and aligning zones are elliptic. Body size represented by length of body and size of these two zones. Attraction zone is independent of body size, as this is based purely on vision.
+
+
+\section{week 5}
+
+Debugging code for polar order parameter plots, and infinite boundary condition simulations.
+
+
+\section{week 6}
+
+Finishing work on the Vicsek model, with periodic and infinite boundary conditions, and starting reproducing models with repulsive and attractive force terms between the boids.
+
+\cite{bode_how_2010}
+Individual-based model adopting distributions in speed, like that found in experimental data (of Aoki). Does this by allowing each fish to update asynchronously. At each update, a random individual, of equal probability is chosen, it then decides how it will update according to which behavioural rule it 'choses' (p and 1-p, probabilities for attraction or orientation, repulsion is prioritised). Probability of orientation or attraction is set as equal (as in couzin 2002). The fish inherit different speeds for the different behavioural rules, unlike other models which have 'identical instantaneous speed' 
+
+$\Delta t$ is the time it takes for the whole population to update, corresponding to the reciprocal of the rate at which individuals update. The output is then recorded every T=$\lambda \Delta t$. $\Delta t$ is then analogous to the rate which an individual will react to the present information. For large $\Delta t$ there is an increase in distance to the nearest neighbour, and a large spread of speeds, vice versa for low values. $\Delta t$ can be thought of as the agitation of the fish, lower values mean more updates are occurring and the fish are in a state of high agitation (maybe due to a predator).
+
+
+\section{week 7}
+
+\subsection{Physics of the Vicsek Model} \cite{ginelli_physics_2016}
+
+Collective motion phenomena occur far from equilibrium $\rightarrow$ particles are active (continuously dissipate free energy to perform systematic (non-thermal) motion. Arises spontaneously. Orientationally ordered phase of active matter. 
+
+Noise term plays similar role to that of temperature in equilibrium systems. Synchronous model $\rightarrow$ all particles positions and headings are changed at the same time. 
+
+Spontaneous symmetry breaking to polar order. Heading update equation has explicit polar (ferromagnetic) alignment term $\rightarrow$ if noise low enough then the system can develop global orientation order (collective motion), signalled by polar order parameter, analogous to total magnetisation in spin systems. 
+
+Vicsek model can be seen as XY (Heisenberg in 3D) ferromagnet in which particles are not fixed in lattice positions, but can move in the spin direction. 
+
+Transition to collective motion interpreted as a liquid-gas phase transition, in a non-equilibrium context and with no accessible supercritical region.
+
+\section{week 8}
+
+\subsection{Obstructed view} \cite{kunz_simulations_2012}
+
+In reality, individuals will only interact with their close neighbours, and these obstruct the view of fish farther away. 
+Larger schools are denser and more oblong than their smaller counterparts. (Hemlrijk 03, 05, 08, 10) 
+Used before: topological range (fixed number of neighbours), or the first shell of neighbours around itself (Voronoi tessellation). These are unrealistic, neighbours are sometimes perceived over much larger distances in certain directions than in other directions. 
+New model: split FOV into numerous sectors and only the closest neighbour in each sector will be taken into account; if a neighbour covers several sectors, it is counted only once.
+
+
+Weight of repulsion highest for short distances, alignment for intermediate distances (they also turn faster when the angle towards their neighbour is larger), and attraction for highest distances. 
+
+Without obstruction, for schools of more than 1000 individuals, the nearest neighbour distance decreases to unrealistic values, however when including obstruction, the value still decreases but not to such an extent, leading to realistic densities.
+
+"
+Although we did not perform a detailed sensitivity
+analysis, changing the weight factors for the behavioural
+responses affects our model in a way similar to that
+reported by Couzin et al. (2002). Increasing the strength
+or range of repulsion makes groups sparser, increasing the strength of attraction or its range increases density.
+Increasing the range of alignment leads to milling, i.e. the
+groups form a ring. Very strong repulsion or very weak
+attraction leads to fragmentation of the group, very weak
+alignment makes the group unordered, so that it becomes
+stationary.
+"
 
 
 
 
 
-cis help register
-register for hpc - fill in form - level 4 project - wrathmall - 
 
-for first term - one system works good - model specific for that system - 
+
+
+
+
 
 
 
