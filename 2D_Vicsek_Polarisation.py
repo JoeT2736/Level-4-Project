@@ -22,13 +22,13 @@ R=1    #Interaction radius
 
 def Vicsek_pol(N, eta, D):
 
-    average_pol =[]
+    average_pol = []
 
     for k in eta:
 
         pol = []
     
-        for _ in range(4):
+        for _ in range(5):
 
             pos = np.random.uniform(0, D, size=(N, 2))
             angle = np.random.uniform(0, 2*np.pi, size=N)
@@ -93,7 +93,7 @@ ax.set_title('Periodic boundary conditions')
 ax.tick_params(direction='out', length=4, width=1, labelsize=12, top=False, right=False)
 ax.legend(fontsize=14)
 #ax.minorticks_on()
-#plt.savefig(f"Polar Order Parameter, periodic boundary conditions Plot.png", dpi=400)
+plt.savefig(f"Polar Order Parameter, periodic boundary conditions, 5x mean.png", dpi=400)
 plt.show()
 
 

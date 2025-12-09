@@ -7,10 +7,12 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import scipy.spatial
 import scipy.constants
+import sympy
+from sympy import Point, Line
 
 
 N=100  #Number of agents
-D=20 #Size of domain
+D=40 #Size of domain
 T=3000   #Total number of time steps (frames) in simulation
 stepsize=0.2 #seconds      #change in time between calculation of position and angle
 eta=0.15   #Random noise added to angles
@@ -41,19 +43,12 @@ attract_scalefactor = 1
 active_sort_repel = 2
 active_sort_align = 2
 active_sort_attract = 2
-risk_avoidance = 1#20#np.random.uniform(0, 40, size=N)
+risk_avoidance = 20#np.random.uniform(0, 40, size=N)
 
-#np.random.seed(3)
+np.random.seed(3)
 
 #pos = np.random.uniform(1, 3.5, size=(N, 2))
 #angle = np.random.uniform(0, np.pi/2, size=N)
-
-pos = np.random.uniform(0, D, size=(N, 2))
-angle = np.random.uniform(0, np.pi*2, size=N)
-
-size_s = np.zeros(25)
-size_l = np.ones(75)
-size = np.concatenate((size_s, size_l))
 
 
 
@@ -211,6 +206,24 @@ def Centre_of_grav_dist():
     return np.mean(distances)
 
 
+#distance between centre of one boid and the closeset point from another (for boids with length)
+def shortest_distance(pos1, min_point, max_point):
+
+    distance = (np.abs((max_point[:, 1] - min_point[:, 1])*pos1[:, 0] - (max_point[:, 0] - min_point[:, 0])*pos1[:, 1] + 
+                        max_point[:, 0]*min_point[:, 1] - max_point[:, 1]*min_point[:, 0]))/(np.sqrt(((max_point[:, 1] - 
+                        min_point[:, 1])**2 + (max_point[:, 0] - min_point[:, 0])**2)**2))
+
+    return distance
+
+
+
+pos = np.random.uniform(0, D, size=(N, 2))
+angle = np.random.uniform(0, np.pi/2, size=N)
+
+size_s = np.zeros(50)
+size_l = np.ones(50)
+size = np.concatenate((size_s, size_l))
+
 def update(ratios):
 
     global pos
@@ -218,22 +231,64 @@ def update(ratios):
     global simulation_step
     global size
 
-    results = []
-    for r in ratios:
-        # r is fraction of small boids (0..1)
-        small_count = int(round(N * r))
-        # assign small indices randomly so small and large are distributed
-        indices = np.arange(N)
-        np.random.shuffle(indices)
-        small_idx = indices[:small_count]
-        size = np.ones(N, dtype=int)   # 1 = large, 0 = small
-        size[small_idx] = 0
+    ############### use for average pltos ###############
+
+    #for r in ratios:
+    #    small_count = int(round(N * r))
+    #    indices = np.arange(N)
+    #    small_idx = indices[:small_count]
+    #    size = np.ones(N, dtype=int)   # 1 = large, 0 = small
+    #    size[small_idx] = 0
 
         # initialize state
-        pos = pos.copy()
-        angle = angle.copy()
+        #pos = pos.copy()
+        #angle = angle.copy()
+
+    ###################################################
 
 
+    ##### line agents #####
+
+    length = np.zeros(N)
+    length[size == 0] = 0.2
+    length[size == 1] = 0.4
+
+    #min and max x and y positions for agents with a length, based on their direction
+    #'turns' the line according to angle
+    max_x = pos[:, 0] + length/2 * np.cos(angle)
+    min_x = pos[:, 0] - length/2 * np.cos(angle)
+
+    max_y = pos[:, 1] + length/2 * np.sin(angle)
+    min_y = pos[:, 1] - length/2 * np.sin(angle)
+
+    min_point = np.zeros((N, 2))    #min x and y coords of line
+    max_point = np.zeros((N, 2))    #max x and y coords of line
+
+    #array in same shape (N, 2) of 'pos' array
+    for i in range(N):
+        min_point[i], max_point[i] = np.array(([min_x[i], min_y[i]])), np.array(([max_x[i], max_y[i]]))
+
+    #check if lines correct size
+    #length2 = np.linalg.norm(min_point - max_point, axis=1) 
+
+    DistanceMatrix_line = shortest_distance(pos, min_point, max_point)
+
+    #equation of each of the line segments
+    #grad = (max_point[:, 1] - min_point[:, 1])/(max_point[:, 0] - min_point[:, 0])        #size N
+    #y_int = max_point[:, 1] - grad*max_point[:, 0]                                        #size N
+
+    #x_on_line = (pos[:, 0] + grad*pos[:, 1] - grad*y_int)/(grad**2 + 1)  #size N  =====>  #size N x N ???
+    #y_on_line = grad*((pos[:, 0] + grad*pos[:, 1] - grad*y_int)/(grad**2 + 1)) + y_int    #size N x N
+
+    #distance = (np.sqrt((y_int + grad*pos[:, 0] - pos[:, 1])**2))/(np.sqrt(1 + grad**2))  #size N x N
+    
+
+    #######################
+
+
+
+
+    ##### point agents #####
 
     DistanceMatrix = scipy.spatial.distance.pdist(pos)  #Scipy function to calculate distance between two agents
     DistanceMatrix = scipy.spatial.distance.squareform(DistanceMatrix)   #matrix of form [i, j] => distance between agents i and j
@@ -247,7 +302,20 @@ def update(ratios):
 
     bearing_ij = np.arctan2(vec_ij[:, :, 1], vec_ij[:, :, 0])   #direction of each boid to all other boids size=(N x N)
     rel_bearing_ij = angle_wrap(bearing_ij - angle[:, None])    #changes the angle to be between pi and -pi
+
+    #########################
+
+
+
+    ##### elliptical agents #####
+
     
+
+
+
+    #############################
+
+
     #masks for distance only (small)
     repel_mask_distance_s = dist <= repulsion_range_s
     align_mask_distance_s = (dist > repulsion_range_s) & (dist <= aligning_range_s)
@@ -440,7 +508,25 @@ def update(ratios):
                     #attract_contribution_l = attract(rel_bearing_ij[i, attract_l], DistanceMatrix[i, attract_l], attract_scalefactor, attraction_range, aligning_range_l)
 
                 rotation_l[i] = (0 if align_l.size == 0 else np.mean(align_contribution_l)) + (0 if attract_l.size == 0 else np.mean(attract_contribution_l))
+        
 
+        ##### 'lost' boid turn around #####
+        '''
+        repel_s = np.where(repel_mask_s[i])[0]
+        align_s = np.where(align_mask_s[i])[0]
+        attract_s = np.where(attract_mask_s[i])[0]
+        repel_l = np.where(repel_mask_l[i])[0]
+        align_l = np.where(align_mask_l[i])[0]
+        attract_l = np.where(attract_mask_l[i])[0]
+
+        if repel_s.size + align_s.size + attract_s.size == 0:
+
+            rotation_s[i] = np.pi
+
+        if repel_l.size + align_l.size + attract_l.size == 0:
+
+            rotation_l[i] = np.pi
+        '''
     
     mean_heading = angle + (rotation_s + rotation_l) * stepsize #+ rotation_from_pred) * stepsize
 
@@ -468,6 +554,8 @@ def update(ratios):
 
     return pos, cos, sin
 
+print(update(1))
+
 
 
 def Nearest_Neigbour_Dist(ratio):
@@ -487,6 +575,7 @@ def Nearest_Neigbour_Dist(ratio):
     return distance
 
 
+'''
 ratio_of_agents = np.array([0, 0.25, 0.5, 0.75, 1], dtype=int)
 
 
@@ -506,23 +595,6 @@ ax.legend(fontsize=14)
 plt.show()
 
 
-
-'''
-
-# After simulation is complete, plot CoG distances for final 1000 steps
-if len(CoG_distances) >= 1000:
-    last_1000 = CoG_distances[-1000:]
-    plt.figure(figsize=(7,4))
-    plt.plot(last_1000)
-    plt.title("Average Distance to Centre of Gravity (last 1000 steps)")
-    plt.xlabel("Simulation Step (last 1000)")
-    plt.ylabel("Mean Distance to CoG")
-    plt.grid(True)
-    plt.show()
-else:
-    print("Not enough simulation steps to compute last 1000 CoG distances.")
-
-'''
 
 
 fig, ax = plt.subplots()
@@ -565,7 +637,7 @@ ax.set_aspect('equal', adjustable='box')
 
 
 def Animate_quiver(frame):
-    pos, cos, sin = update()
+    pos, cos, sin = update(1)
     animated_plot_quiver.set_offsets(pos)
     animated_plot_quiver.set_UVC(cos, sin)
     #animated_plot_quiver_pred.set_offsets(p_pos)
@@ -579,7 +651,7 @@ anim = FuncAnimation(fig = fig, func = Animate_quiver, interval = 1, frames = T,
 #anim.save(f"Hemelrijk, with weights, np.random.seed(3), 75_25 big_small, active sorting.gif", dpi=400)
 #plt.savefig("2DVicsekAnimation.png", dpi=400)
 plt.show()
-
+'''
 
 
 
