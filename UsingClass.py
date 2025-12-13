@@ -8,7 +8,7 @@ import scipy.spatial
 
 
 #N = 10         #number of agents
-D = 9999#25          #domain size (square [0, D] x [0, D])
+D = 25          #domain size (square [0, D] x [0, D])
 T = 3000        #number of frames
 stepsize = 0.2  #seconds per update
 #eta = 0.15      #angle noise 
@@ -236,29 +236,37 @@ def attract(bearing, distance_array, scale_factor, attract_range, align_range):
 
 class HemelrijkSimulation:
     def __init__(self, mode="point", N=None, size=None):
-        if N is None:
-            raise ValueError("N must be provided explicitly.")
+
         #assert mode in ("point", "line", "ellipse")
         self.mode = mode
         self.N = N
         self.D = D
 
-        #random spawin across domain
+        #random spawn across domain
         #self.pos = np.random.uniform(0, D, size=(N, 2))
         #self.angle = np.random.uniform(-np.pi, np.pi, size=N)
 
-        #one school
+        #one school (2.5 x 2.5m box, with angles up to 90deg)
         self.pos = np.random.uniform(5, 7.5, size=(N, 2))
         self.angle = np.random.uniform(0, np.pi/2, size=N)
 
         self.v0 = v0
         self.v_SD = v_SD
+
+
+        ############### use for animations, mix of large and small ###############
+        
         #Size array (0 = small, 1 = large) 
         ratio = N   #number of small fish
         #size_s = np.zeros(ratio, dtype=int)
         #size_l = np.ones(N - ratio, dtype=int)
         #self.size = np.concatenate((size_s, size_l))
         #self.eccentricity = np.where(self.size == 0, eccentricity_s, eccentricity_l)
+
+        ##########################################################################
+
+
+        ############### use for static plots, for all large or all small ###############
 
         if size == 'small':
             self.size = np.zeros(ratio)
@@ -267,6 +275,7 @@ class HemelrijkSimulation:
 
         self.eccentricity = np.where(self.size == 0, eccentricity_s, eccentricity_l)
 
+        ################################################################################
 
 
         self.repulsion_range = np.where(self.size == 0, repulsion_range_s, repulsion_range_l)
@@ -274,13 +283,10 @@ class HemelrijkSimulation:
         self.attraction_range = attraction_range
 
         #lengths for line agents
-        self.lengths = np.where(self.size == 0, length_small, length_large)
+        self.lengths = np.where(self.size == 0, length_small, length_large)     #when self.size == 0, gives value of self.lengths 0.1m (length of small fish)
+                                                                                #when not == 0, gives length 0.2m
 
-        #ellipse agents
-        self.a_axis = np.where(self.size == 0, repulsion_range_s * eccentricity_s, repulsion_range_l * eccentricity_l)
-        self.b_axis = np.where(self.size == 0, repulsion_range_s, repulsion_range_l)
-
-        #lists to store statistics to plot
+        #lists to store statistics for plots
         self.centre_dist = []
         self.near1 = []
         self.near2 = []
@@ -404,7 +410,8 @@ class HemelrijkSimulation:
                 
                 contribution = np.zeros(len(repel_))     #set up array to store the contribution of repulsion due to each neighbour
 
-                for k, j in enumerate(repel_):  #for each value in repel_ (for each neighbour)
+                # k = counter, j = element ???
+                for k, j in enumerate(repel_):  #for each value in repel_ (for each neighbour j)        enumerate adds a counter to the element depending on its position in the list
 
                     j_small = (self.size[j] == 0)   #check size of neighbour
 
@@ -499,7 +506,7 @@ class HemelrijkSimulation:
 
         #adding rotation to original angle
         mean_heading = angle + rotation * stepsize
-        #add noise factor
+                                                      #vvvvvvvvvvv = noise
         update_angle = np.random.normal(mean_heading, direction_SD)     
 
         self.v = self.speed()
@@ -523,39 +530,57 @@ class HemelrijkSimulation:
 
         return self.pos.copy(), cos, sin, dist#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.homogeneity_.copy()
     
-
-def run_sim(N_vals, fish_size):
+def run_sim(N_vals, fish_size, repeats=3):
     modes = ['point', 'line', 'ellipse']
+
     avg_centre = {m: [] for m in modes}
     avg_near_n = {m: [] for m in modes}
 
     for mode in modes:
+        print(f"\n=== {mode} ===")
 
         for N in N_vals:
+            print(f"  N = {N}")
 
-            sim = HemelrijkSimulation(mode = mode, N=N, size=fish_size)#, all_small=(fish_size == 'small'), all_large=(fish_size == 'large'))
+            centre_runs = []
+            near_runs = []
 
-            #sim.N = N
-            sim.pos = np.random.uniform(5, 7.5, size=(N, 2))
-            sim.angle = np.random.uniform(-np.pi, np.pi, size=N)
+            for r in range(repeats):
+                sim = HemelrijkSimulation(mode=mode, N=N, size=fish_size)
 
-            for t in range(T):
-                sim.step()
+                sim.pos = np.random.uniform(5, 7.5, size=(N, 2))
+                sim.angle = np.random.uniform(0, np.pi/2, size=N)
+                
+                for t in range(T):
+                    sim.step()
 
-            avg_centre[mode].append(np.mean(sim.centre_dist))
-            avg_near_n[mode].append(np.mean(sim.near1))
+                #last 1000 time steps
+                centre_runs.append(np.mean(sim.centre_dist[-1000:]))
+                near_runs.append(np.mean(sim.near1[-1000:]))
+
+            
+            avg_centre[mode].append(np.mean(centre_runs))
+            avg_near_n[mode].append(np.mean(near_runs))
 
     return avg_centre, avg_near_n
+
+
+
 
 plt.rcParams["font.family"] = "Times New Roman"
 
 
 
 
+
 N_vals = [3, 4, 6, 10, 25, 50, 75, 100]
 
+print("\n=== Running SMALL ===")
 centre_s, near_s = run_sim(N_vals, 'small')
+
+print("\n=== Running LARGE ===")
 centre_l, near_l = run_sim(N_vals, 'large')
+
 
 modes = ['point', 'line', 'ellipse']
 linestyles = {'point':':', 'line':'--', 'ellipse':'-'}
@@ -570,7 +595,7 @@ ax.set_xlabel('group size')
 ax.set_ylabel('centre distance')
 ax.legend()
 
-ax = axs[1, 0]
+ax = axs[0, 1]
 for m in modes:
     ax.plot(N_vals, centre_l[m], '-o', linestyle=linestyles[m])
 ax.set_title('Average centre distance (large fish)')
@@ -578,7 +603,7 @@ ax.set_xlabel('group size')
 ax.set_ylabel('centre distance')
 ax.legend()
 
-ax = axs[0, 1]
+ax = axs[1, 0]
 for m in modes:
     ax.plot(N_vals, near_s[m], '-o', linestyle=linestyles[m])
 ax.set_title('nearest neighbour distance (small fish)')
