@@ -226,7 +226,7 @@ def attract(bearing, distance_array, scale_factor, attract_range, align_range):
     sign_to_j[sign_to_j == 0] = 1
 
     attract_rotate = turning_rate * heading_vals * sign_to_j
-    attract_weight = (0.2 * scale_factor * np.exp(-(distance_array - 0.5 * (attract_range + align_range)/(attract_range - align_range, epsilon))**2))
+    attract_weight = (0.2 * scale_factor * np.exp(-((distance_array - 0.5 * (attract_range + align_range))/(attract_range - align_range, epsilon))**2))
     return np.mean(attract_rotate * attract_weight)
 
 ##########################################################
@@ -291,6 +291,9 @@ class HemelrijkSimulation:
         self.near1 = []
         self.near2 = []
         self.homogeneity_ = []
+        self.pol_parame = []
+        self.group_vel = []
+        self.prev_cg = None
 
     #function for random speed element
     def speed(self):
@@ -325,10 +328,41 @@ class HemelrijkSimulation:
 
         return n1, n2
     
+    #polar order parameter
+    def pol_param(self):
+        vx = np.mean(np.cos(self.angle))
+        vy = np.mean(np.sin(self.angle))
+        return np.sqrt(vx**2 + vy**2)
+    
 
     def homogeneity(self):
         n1, n2 = self.near_n()
         return n1 / n2
+    
+    def group_velocity(self):
+        """
+        Speed of the centre of gravity of the group.
+        Handles periodic boundaries correctly.
+        """
+
+        cg = self.c_grav()  # current centre of gravity (2,)
+
+        if self.prev_cg is None:
+            # no velocity at first step
+            self.prev_cg = cg.copy()
+            return 0.0
+
+        # displacement with periodic wrapping
+        delta = cg - self.prev_cg
+
+        # minimum-image convention for periodic boundaries
+        delta = (delta + self.D / 2) % self.D - self.D / 2
+
+        speed = np.linalg.norm(delta) / stepsize
+
+        self.prev_cg = cg.copy()
+        return speed
+
     
 
     #all stats in one function
@@ -336,11 +370,15 @@ class HemelrijkSimulation:
         c = self.avg_c_dist()
         n1, n2 = self.near_n()
         h = n1 / n2
+        p = self.pol_param()
+        gv = self.group_velocity()
 
         return {"center_distance": c,
             "nearest_neighbor": n1,
             "second_neighbor": n2,
-            "homogeneity": h}
+            "homogeneity": h,
+            "polar order parameter": p,
+            "group velocity": gv}
 
 
     #function for one step of simulation
@@ -527,42 +565,59 @@ class HemelrijkSimulation:
         self.near1.append(stats["nearest_neighbor"])
         self.near2.append(stats["second_neighbor"])
         self.homogeneity_.append(stats["homogeneity"])
+        self.pol_parame.append(stats["polar order parameter"])
+        self.group_vel.append(stats["group velocity"])
 
         return self.pos.copy(), cos, sin, dist#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.homogeneity_.copy()
     
-def run_sim(N_vals, fish_size, repeats=3):
+def run_sim(N_vals, fish_size, repeats=25):
     modes = ['point', 'line', 'ellipse']
 
-    avg_centre = {m: [] for m in modes}
-    avg_near_n = {m: [] for m in modes}
+    #avg_centre = {m: [] for m in modes}
+    #avg_near_n = {m: [] for m in modes}
+    #avg_polar_order = {m: [] for m in modes}
+    #avg_group_vel = {m: [] for m in modes}
+    avg_homogeneity = {m: [] for m in modes}
 
     for mode in modes:
-        print(f"\n=== {mode} ===")
+        #print(f"\n=== {mode} ===")
 
         for N in N_vals:
-            print(f"  N = {N}")
+            #print(f"  N = {N}")
 
-            centre_runs = []
-            near_runs = []
+            #centre_runs = []
+            #near_runs = []
+            #polar_order_runs = []
+            #group_vel_runs = []
+            homogeneity_runs = []
 
             for r in range(repeats):
                 sim = HemelrijkSimulation(mode=mode, N=N, size=fish_size)
 
                 sim.pos = np.random.uniform(5, 7.5, size=(N, 2))
                 sim.angle = np.random.uniform(0, np.pi/2, size=N)
+
+                #print(f"    run {r}: ")
+
                 
                 for t in range(T):
                     sim.step()
 
                 #last 1000 time steps
-                centre_runs.append(np.mean(sim.centre_dist[-1000:]))
-                near_runs.append(np.mean(sim.near1[-1000:]))
+                #centre_runs.append(np.mean(sim.centre_dist[-1000:]))
+                #near_runs.append(np.mean(sim.near1[-1000:]))
+                #polar_order_runs.append(np.mean(sim.pol_parame[-1000:]))
+                #group_vel_runs.append(np.mean(sim.group_vel[-1000:]))
+                homogeneity_runs.append(np.mean(sim.homogeneity_[-1000:]))
 
             
-            avg_centre[mode].append(np.mean(centre_runs))
-            avg_near_n[mode].append(np.mean(near_runs))
+            #avg_centre[mode].append(np.mean(centre_runs))
+            #avg_near_n[mode].append(np.mean(near_runs))
+            #avg_polar_order[mode].append(np.mean(polar_order_runs))
+            #avg_group_vel[mode].append(np.mean(group_vel_runs))
+            avg_homogeneity[mode].append(np.mean(homogeneity_runs))
 
-    return avg_centre, avg_near_n
+    return avg_homogeneity #avg_polar_order, group_vel_runs #avg_centre, avg_near_n, avg_polar_order
 
 
 
@@ -571,25 +626,87 @@ plt.rcParams["font.family"] = "Times New Roman"
 
 
 
-
+####### STATIC PLOTS #######
 
 N_vals = [3, 4, 6, 10, 25, 50, 75, 100]
 
-print("\n=== Running SMALL ===")
-centre_s, near_s = run_sim(N_vals, 'small')
+#print("\n=== Running SMALL ===")
+#centre_s, near_s = run_sim(N_vals, 'small')
+#pol_order_s, group_vel_s = run_sim(N_vals, 'small')
+homogeneity_s = run_sim(N_vals, 'small')
 
-print("\n=== Running LARGE ===")
-centre_l, near_l = run_sim(N_vals, 'large')
+#print("\n=== Running LARGE ===")
+#centre_l, near_l = run_sim(N_vals, 'large')
+#pol_order_l, group_vel_l = run_sim(N_vals, 'large')
+homogeneity_l = run_sim(N_vals, 'large')
+
 
 
 modes = ['point', 'line', 'ellipse']
 linestyles = {'point':':', 'line':'--', 'ellipse':'-'}
+markers = {'point':'o', 'line':'square', 'ellipse':'thin_diamond'}
 
+fig, axs = plt.subplots(2, 1, figsize=(6, 6))
+ax = axs[0, 0]
+for m in modes:
+    ax.plot(N_vals, homogeneity_s[m], 'o', linestyle=linestyles[m], label=m)
+ax.set_title('(a)', fontsize='14')
+ax.set_xlabel('Group Size', fontsize='14')
+ax.set_ylabel('Homogeneity', fontsize='14')
+ax.legend(fontsize='14')
+
+ax = axs[0, 1]
+for m in modes:
+    ax.plot(N_vals, homogeneity_l[m], 'o', linestyle=linestyles[m], label=m)
+ax.set_title('(b)', fontsize='14')
+ax.set_xlabel('Group Size', fontsize='14')
+ax.set_ylabel('Homogeneity', fontsize='14')
+ax.legend(fontsize='14')
+
+
+### for polar order parameter and group velocity plot ###
+'''
 fig, axs = plt.subplots(2, 2, figsize=(6, 6))
 
 ax = axs[0, 0]
 for m in modes:
-    ax.plot(N_vals, centre_s[m], '-o', linestyle=linestyles[m], label=m)
+    ax.plot(N_vals, pol_order_s[m], 'o', linestyle=linestyles[m], label=m)
+ax.set_title('(a)', fontsize='14')
+ax.set_xlabel('Group Size', fontsize='14')
+ax.set_ylabel('Polar Order Parameter', fontsize='14')
+ax.legend(fontsize='14')
+
+ax = axs[1, 0]
+for m in modes:
+    ax.plot(N_vals, pol_order_l[m], 'o', linestyle=linestyles[m])
+ax.set_title('(b)', fontsize='14')
+ax.set_xlabel('Group Size', fontsize='14')
+ax.set_ylabel('Polar Order Parameter', fontsize='14')
+ax.legend()
+
+ax = axs[0, 1]
+for m in modes:
+    ax.plot(N_vals, group_vel_s[m], 'o', linestyle=linestyles[m], label=m)
+ax.set_title('(c)', fontsize='14')
+ax.set_xlabel('Group Size', fontsize='14')
+ax.set_ylabel('Group Velocity', fontsize='14')
+ax.legend(fontsize='14')
+
+ax = axs[1, 1]
+for m in modes:
+    ax.plot(N_vals, group_vel_l[m], 'o', linestyle=linestyles[m])
+ax.set_title('(d)', fontsize='14')
+ax.set_xlabel('Group Size', fontsize='14')
+ax.set_ylabel('Group Velocity', fontsize='14')
+ax.legend()
+'''
+
+### for 2x2 distance to centre of nearest neighbour distance ###
+'''
+fig, axs = plt.subplots(2, 2, figsize=(6, 6))
+ax = axs[0, 0]
+for m in modes:
+    ax.plot(N_vals, centre_s[m], '-o', linestyle=linestyles[m], marker=markers[m], label=m)
 ax.set_title('Average centre distance (small fish)')
 ax.set_xlabel('group size')
 ax.set_ylabel('centre distance')
@@ -597,7 +714,7 @@ ax.legend()
 
 ax = axs[0, 1]
 for m in modes:
-    ax.plot(N_vals, centre_l[m], '-o', linestyle=linestyles[m])
+    ax.plot(N_vals, centre_l[m], '-o', linestyle=linestyles[m], marker=markers[m])
 ax.set_title('Average centre distance (large fish)')
 ax.set_xlabel('group size')
 ax.set_ylabel('centre distance')
@@ -605,7 +722,7 @@ ax.legend()
 
 ax = axs[1, 0]
 for m in modes:
-    ax.plot(N_vals, near_s[m], '-o', linestyle=linestyles[m])
+    ax.plot(N_vals, near_s[m], '-o', linestyle=linestyles[m], marker=markers[m])
 ax.set_title('nearest neighbour distance (small fish)')
 ax.set_xlabel('group size')
 ax.set_ylabel('nearest neighbour')
@@ -613,14 +730,15 @@ ax.legend()
 
 ax = axs[1, 1]
 for m in modes:
-    ax.plot(N_vals, near_l[m], '-o', linestyle=linestyles[m])
+    ax.plot(N_vals, near_l[m], '-o', linestyle=linestyles[m], marker=markers[m])
 ax.set_title('nearest neighbour distance (large fish)')
 ax.set_xlabel('group size')
 ax.set_ylabel('nearest neighbour')
 ax.legend()
+'''
 
 plt.tight_layout()
-plt.show()
+plt.savefig('Hemelrijk 2003 homogeneity plot.png', dpi=400)
 
 
     
