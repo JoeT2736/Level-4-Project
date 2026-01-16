@@ -9,7 +9,7 @@ import scipy.spatial
 
 #N = 10         #number of agents
 D = 25          #domain size (square [0, D] x [0, D])
-T = 3000        #number of frames
+T = 10000        #number of frames
 stepsize = 0.2  #seconds per update
 #eta = 0.15      #angle noise 
 v0 = 0.3        #speed
@@ -47,7 +47,7 @@ length_small = 0.1
 length_large = 0.2
 
 #"point", "line", or "ellipse"
-MODE = "line"  
+MODE = "ellipse"  
 
 
 #np.random.seed(3)
@@ -62,6 +62,10 @@ def angle_wrap(a):
 def angular_difference_signed(target, source):
     #positive or negative difference in direction between agent i and j
     return angle_wrap(target - source)
+
+
+
+
 
 
 
@@ -234,8 +238,8 @@ def attract(bearing, distance_array, scale_factor, attract_range, align_range):
 
 
 
-class HemelrijkSimulation:
-    def __init__(self, mode="point", N=None, size=None):
+class HemelrijkSimulation:          #vvv change to N=None for static plots (but give a number for animation)
+    def __init__(self, mode=None, N=75, size='large'):
 
         #assert mode in ("point", "line", "ellipse")
         self.mode = mode
@@ -247,7 +251,7 @@ class HemelrijkSimulation:
         #self.angle = np.random.uniform(-np.pi, np.pi, size=N)
 
         #one school (2.5 x 2.5m box, with angles up to 90deg)
-        self.pos = np.random.uniform(5, 7.5, size=(N, 2))
+        self.pos = np.random.uniform(1.5, 3.5, size=(N, 2))
         self.angle = np.random.uniform(0, np.pi/2, size=N)
 
         self.v0 = v0
@@ -267,14 +271,14 @@ class HemelrijkSimulation:
 
 
         ############### use for static plots, for all large or all small ###############
-
+        
         if size == 'small':
             self.size = np.zeros(ratio)
         else:
             self.size = np.ones(ratio)
 
         self.eccentricity = np.where(self.size == 0, eccentricity_s, eccentricity_l)
-
+        
         ################################################################################
 
 
@@ -340,10 +344,6 @@ class HemelrijkSimulation:
         return n1 / n2
     
     def group_velocity(self):
-        """
-        Speed of the centre of gravity of the group.
-        Handles periodic boundaries correctly.
-        """
 
         cg = self.c_grav()  # current centre of gravity (2,)
 
@@ -379,6 +379,45 @@ class HemelrijkSimulation:
             "homogeneity": h,
             "polar order parameter": p,
             "group velocity": gv}
+    
+
+    def LOS_masks(self, rel_bearing, dist):
+
+        #line of sight masks
+        repel_LOS_mask = np.abs(rel_bearing) <= (repel_LOS / 2.0)
+        align_LOS_mask = (np.abs(rel_bearing) > (repel_LOS / 2.0)) & (np.abs(rel_bearing) <= (np.deg2rad(90) + repel_LOS / 2.0))
+        attract_LOS_mask = np.abs(rel_bearing) <= (attract_LOS / 2.0)
+
+        # Distance masks depend on each focal agent i's view of neighbors j:
+        # For point mode, each agent's repulsion/align ranges depend on the focal agent's own size.
+        # For line/ellipse we'll follow same logic: each focal agent i uses its own repulsion/align ranges.
+        rep_range_i = self.repulsion_range[:, None]     # (N,1)
+        align_range_i = self.aligning_range[:, None]    # (N,1)
+        attract_range = self.attraction_range
+
+        repel_mask_distance = dist <= rep_range_i
+        align_mask_distance = (dist > rep_range_i) & (dist <= align_range_i)
+        attract_mask_distance = (dist > align_range_i) & (dist <= attract_range)
+
+        
+        repel_mask = repel_mask_distance & repel_LOS_mask
+        align_mask = align_mask_distance & align_LOS_mask
+        attract_mask = attract_mask_distance & attract_LOS_mask
+
+        return repel_mask, align_mask, attract_mask
+
+
+    def LOS_block():
+        return
+    
+
+    def predator():
+        return
+    
+
+    def current():
+        return
+    
 
 
     #function for one step of simulation
@@ -409,30 +448,12 @@ class HemelrijkSimulation:
 
         #relative angle of j from frame of i (how agent i views j)
         #bearing = angle from i to j (in world frame)
-        rel_bearing = angle_wrap(bearing - angle[:, None])
 
-        #line of sight masks
-        repel_LOS_mask = np.abs(rel_bearing) <= (repel_LOS / 2.0)
-        align_LOS_mask = (np.abs(rel_bearing) > (repel_LOS / 2.0)) & (np.abs(rel_bearing) <= (np.deg2rad(90) + repel_LOS / 2.0))
-        attract_LOS_mask = np.abs(rel_bearing) <= (attract_LOS / 2.0)
+        #rel_bearing = angle_wrap(bearing - angle[:, None]) <<<<<<< old method, not good
+        rel_bearing = angle_wrap(np.arctan2(bearing, angle))
 
-        # Distance masks depend on each focal agent i's view of neighbors j:
-        # For point mode, each agent's repulsion/align ranges depend on the focal agent's own size.
-        # For line/ellipse we'll follow same logic: each focal agent i uses its own repulsion/align ranges.
-        rep_range_i = self.repulsion_range[:, None]     # (N,1)
-        align_range_i = self.aligning_range[:, None]    # (N,1)
-        attract_range = self.attraction_range
+        repel_mask, align_mask, attract_mask = self.LOS_masks(rel_bearing, dist) 
 
-        repel_mask_distance = dist <= rep_range_i
-        align_mask_distance = (dist > rep_range_i) & (dist <= align_range_i)
-        attract_mask_distance = (dist > align_range_i) & (dist <= attract_range)
-
-        
-        repel_mask = repel_mask_distance & repel_LOS_mask
-        align_mask = align_mask_distance & align_LOS_mask
-        attract_mask = attract_mask_distance & attract_LOS_mask
-
-        
         rotation = np.zeros(N)
 
         #find rotation at each time step for all agents i
@@ -573,11 +594,11 @@ class HemelrijkSimulation:
 def run_sim(N_vals, fish_size, repeats=25):
     modes = ['point', 'line', 'ellipse']
 
-    #avg_centre = {m: [] for m in modes}
-    #avg_near_n = {m: [] for m in modes}
+    avg_centre = {m: [] for m in modes}
+    avg_near_n = {m: [] for m in modes}
     #avg_polar_order = {m: [] for m in modes}
     #avg_group_vel = {m: [] for m in modes}
-    avg_homogeneity = {m: [] for m in modes}
+    #avg_homogeneity = {m: [] for m in modes}
 
     for mode in modes:
         #print(f"\n=== {mode} ===")
@@ -585,11 +606,11 @@ def run_sim(N_vals, fish_size, repeats=25):
         for N in N_vals:
             #print(f"  N = {N}")
 
-            #centre_runs = []
-            #near_runs = []
+            centre_runs = []
+            near_runs = []
             #polar_order_runs = []
             #group_vel_runs = []
-            homogeneity_runs = []
+            #homogeneity_runs = []
 
             for r in range(repeats):
                 sim = HemelrijkSimulation(mode=mode, N=N, size=fish_size)
@@ -604,20 +625,20 @@ def run_sim(N_vals, fish_size, repeats=25):
                     sim.step()
 
                 #last 1000 time steps
-                #centre_runs.append(np.mean(sim.centre_dist[-1000:]))
-                #near_runs.append(np.mean(sim.near1[-1000:]))
+                centre_runs.append(np.mean(sim.centre_dist[-1000:]))
+                near_runs.append(np.mean(sim.near1[-1000:]))
                 #polar_order_runs.append(np.mean(sim.pol_parame[-1000:]))
                 #group_vel_runs.append(np.mean(sim.group_vel[-1000:]))
-                homogeneity_runs.append(np.mean(sim.homogeneity_[-1000:]))
+                #homogeneity_runs.append(np.mean(sim.homogeneity_[-1000:]))
 
             
-            #avg_centre[mode].append(np.mean(centre_runs))
-            #avg_near_n[mode].append(np.mean(near_runs))
+            avg_centre[mode].append(np.mean(centre_runs))
+            avg_near_n[mode].append(np.mean(near_runs))
             #avg_polar_order[mode].append(np.mean(polar_order_runs))
             #avg_group_vel[mode].append(np.mean(group_vel_runs))
-            avg_homogeneity[mode].append(np.mean(homogeneity_runs))
+            #avg_homogeneity[mode].append(np.mean(homogeneity_runs))
 
-    return avg_homogeneity #avg_polar_order, group_vel_runs #avg_centre, avg_near_n, avg_polar_order
+    return avg_centre, avg_near_n #avg_homogeneity #avg_polar_order, group_vel_runs #avg_centre, avg_near_n, avg_polar_order
 
 
 
@@ -633,12 +654,12 @@ N_vals = [3, 4, 6, 10, 25, 50, 75, 100]
 #print("\n=== Running SMALL ===")
 #centre_s, near_s = run_sim(N_vals, 'small')
 #pol_order_s, group_vel_s = run_sim(N_vals, 'small')
-homogeneity_s = run_sim(N_vals, 'small')
+#homogeneity_s = run_sim(N_vals, 'small')
 
 #print("\n=== Running LARGE ===")
 #centre_l, near_l = run_sim(N_vals, 'large')
 #pol_order_l, group_vel_l = run_sim(N_vals, 'large')
-homogeneity_l = run_sim(N_vals, 'large')
+#homogeneity_l = run_sim(N_vals, 'large')
 
 
 
@@ -646,6 +667,14 @@ modes = ['point', 'line', 'ellipse']
 linestyles = {'point':':', 'line':'--', 'ellipse':'-'}
 markers = {'point':'o', 'line':'square', 'ellipse':'thin_diamond'}
 
+
+### static plot of fish ###
+
+
+
+
+### homogeneity plot ###
+'''
 fig, axs = plt.subplots(2, 1, figsize=(6, 6))
 ax = axs[0, 0]
 for m in modes:
@@ -662,7 +691,7 @@ ax.set_title('(b)', fontsize='14')
 ax.set_xlabel('Group Size', fontsize='14')
 ax.set_ylabel('Homogeneity', fontsize='14')
 ax.legend(fontsize='14')
-
+'''
 
 ### for polar order parameter and group velocity plot ###
 '''
@@ -735,11 +764,11 @@ ax.set_title('nearest neighbour distance (large fish)')
 ax.set_xlabel('group size')
 ax.set_ylabel('nearest neighbour')
 ax.legend()
-'''
+
 
 plt.tight_layout()
-plt.savefig('Hemelrijk 2003 homogeneity plot.png', dpi=400)
-
+plt.savefig('Hemelrijk 2003 Near neighbour and distance to centre plot.png', dpi=400)
+'''
 
     
 #sim = HemelrijkSimulation(mode=MODE)
@@ -750,20 +779,25 @@ plt.savefig('Hemelrijk 2003 homogeneity plot.png', dpi=400)
 
 
 #for animation
-'''
+
 if __name__ == "__main__":
     sim = HemelrijkSimulation(mode=MODE)
-    fig, ax = plt.subplots(figsize=(7, 7))
+    fig, ax = plt.subplots(figsize=(6, 6))
     ax.set_xlim(0, D)
     ax.set_ylim(0, D)
+    ax.set_xticks([D])
+    ax.set_yticks([D])
     ax.set_aspect('equal', adjustable='box')
+    #ax.set_xlabel('x-axis', fontsize='14')
+    #ax.set_ylabel('y-axis', fontsize='14')
     # colors by size
-    colors = np.where(sim.size == 0, 'black', 'green')
+    colors = np.where(sim.size == 0, 'black', 'black')
 
     quiv = ax.quiver(sim.pos[:, 0], sim.pos[:, 1], np.cos(sim.angle), np.sin(sim.angle),
                      angles='xy', scale_units='xy', pivot='mid', color=colors)
 
-    plt.title(f"Hemelrijk-style simulation — mode: {MODE}", fontsize=14)
+    #plt.title(f"Hemelrijk-style simulation — mode: {MODE}", fontsize=14)
+    #plt.title('(c)', fontsize='14')
 
     def animate(frame):
         pos, cos, sin, dist = sim.step()
@@ -772,5 +806,5 @@ if __name__ == "__main__":
         return (quiv,)
 
     anim = FuncAnimation(fig, animate, frames=T, interval=20, blit=False, repeat=False)
+    #anim.save("All large, N=50, random spawn.gif", dpi=400)
     plt.show()
-'''
