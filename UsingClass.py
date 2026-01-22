@@ -9,7 +9,7 @@ import scipy.spatial
 
 #N = 10         #number of agents
 D = 25          #domain size (square [0, D] x [0, D])
-T = 10000        #number of frames
+T = 3000        #number of frames
 stepsize = 0.2  #seconds per update
 #eta = 0.15      #angle noise 
 v0 = 0.3        #speed
@@ -50,7 +50,7 @@ length_large = 0.2
 MODE = "ellipse"  
 
 
-#np.random.seed(3)
+np.random.seed(3)
 
 
 
@@ -87,9 +87,12 @@ def segment_endpoints(positions, angles, lengths):
     return min_point, max_point
 
 
-def vectorized_point_to_segment_distances(positions, min_point, max_point):
+def vectorized_point_to_segment_distances(positions, angles, lengths):
     #distance from centre of agent i to the closest position on the line segment of agent j (for models with a length)
     #Expand dims to (N, N, 2) where first index is point i and second is segment j
+
+    min_point, max_point = segment_endpoints(positions, angles, lengths)
+
     P = positions[:, None, :]   #(N,1,2)
     A = min_point[None, :, :]   #(1,N,2)
     B = max_point[None, :, :]   #(1,N,2)
@@ -161,12 +164,19 @@ def ellipse_distance_transform(positions, angles, a_vals, b_vals):
     return dist, bearing, vec
 '''
 
-def ellipse_distance_hemlrijk(positions, angles, eccentricity):
+def ellipse_distance_hemlrijk(positions, angles, eccentricity, lengths):
 
     N = positions.shape[0]
 
+    #min_point, max_point = segment_endpoints(positions, angles, lengths)
+
+    dist_line, bearing, vec = vectorized_point_to_segment_distances(positions, angles, lengths)
+
+
     #relative vectors of every agent to every other agent
     rel = positions[None, :, :] - positions[:, None, :]   # (N,N,2)
+
+    dist_line = dist_line[None, :]  ###### NOT SURE ABOUT THIS ######
 
     #x and y headings of each agent
     cos_i = np.cos(angles)[:, None]   # (N,1)
@@ -177,8 +187,8 @@ def ellipse_distance_hemlrijk(positions, angles, eccentricity):
     sin_i = np.repeat(sin_i, N, axis=1)
 
     #body-frame of agent i
-    x_rel = rel[:, :, 0]
-    y_rel = rel[:, :, 1]
+    x_rel = dist_line[:, :, 0]
+    y_rel = dist_line[:, :, 1]
 
     #rotate relative vectors into body frame of agent i (apply the rotation matrix)
     u = x_rel * cos_i + y_rel * sin_i       #forward axis  u>0 = j in front of i, u<0 = j behind i
@@ -189,12 +199,12 @@ def ellipse_distance_hemlrijk(positions, angles, eccentricity):
     e = np.repeat(e, N, axis=1)   # (N,N)
 
     #Equation 13 in Hemelrijk and Kunz 2003 (to find distance)
-    dist = np.sqrt(((u**2) / (e)) + e*(z**2))
+    dist_ellipse = np.sqrt(((u**2) / (e)) + e*(z**2))
 
     #Bearings (not in agent i's frame)
     bearing = np.arctan2(rel[:, :, 1], rel[:, :, 0])
 
-    return dist, bearing, rel
+    return dist_ellipse, bearing, rel, dist_line
 
 
 
@@ -239,7 +249,7 @@ def attract(bearing, distance_array, scale_factor, attract_range, align_range):
 
 
 class HemelrijkSimulation:          #vvv change to N=None for static plots (but give a number for animation)
-    def __init__(self, mode=None, N=75, size='large'):
+    def __init__(self, mode=None, N=50, size='small'):
 
         #assert mode in ("point", "line", "ellipse")
         self.mode = mode
@@ -284,7 +294,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
 
         self.repulsion_range = np.where(self.size == 0, repulsion_range_s, repulsion_range_l)
         self.aligning_range = np.where(self.size == 0, aligning_range_s, aligning_range_l)
-        self.attraction_range = attraction_range
+        self.attraction_range = np.full(N, attraction_range)
 
         #lengths for line agents
         self.lengths = np.where(self.size == 0, length_small, length_large)     #when self.size == 0, gives value of self.lengths 0.1m (length of small fish)
@@ -294,7 +304,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         self.centre_dist = []
         self.near1 = []
         self.near2 = []
-        self.homogeneity_ = []
+        self.Nearest_Neighbours_ = []
         self.pol_parame = []
         self.group_vel = []
         self.prev_cg = None
@@ -339,7 +349,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         return np.sqrt(vx**2 + vy**2)
     
 
-    def homogeneity(self):
+    def Nearest_Neighbours(self):
         n1, n2 = self.near_n()
         return n1 / n2
     
@@ -376,11 +386,36 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         return {"center_distance": c,
             "nearest_neighbor": n1,
             "second_neighbor": n2,
-            "homogeneity": h,
+            "Nearest_Neighbours": h,
             "polar order parameter": p,
             "group velocity": gv}
     
 
+
+    def repel_mask(self, rel_bearing, dist):
+        LOS_mask = np.abs(rel_bearing) <= (repel_LOS)
+        range_i = self.repulsion_range[:, None] 
+        mask_distance = dist <= range_i
+        mask = mask_distance & LOS_mask
+        return mask
+    
+    def attract_mask(self, rel_bearing, dist):
+        LOS_mask = np.abs(rel_bearing) <= (attract_LOS)
+        range_i = self.attraction_range[:, None] 
+        mask_distance = dist <= range_i
+        mask = mask_distance & LOS_mask
+        return mask
+    
+    def align_mask(self, rel_bearing, dist):
+        LOS_mask = (np.abs(rel_bearing) > (repel_LOS)) & (np.abs(rel_bearing) <= (attract_LOS))
+        range_i = self.aligning_range[:, None] 
+        mask_distance = dist <= range_i
+        mask = mask_distance & LOS_mask
+        return mask
+
+
+    
+    '''
     def LOS_masks(self, rel_bearing, dist):
 
         #line of sight masks
@@ -405,10 +440,215 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         attract_mask = attract_mask_distance & attract_LOS_mask
 
         return repel_mask, align_mask, attract_mask
+    '''
 
 
-    def LOS_block():
-        return
+    #Divide field of view into a number of sectors. Only the closeset neighbour in that sector can be perceived. If neighbour covers multiple zones,
+    #it is only counted once (it is counted as the closest neighbour for both zones.), hence focal agent may interact with less fish than there are zones.
+    def LOS_block(self, Number_sectors):
+
+        positions = self.pos
+        angles = self.angle
+        lengths = self.lengths
+        eccentricity = self.eccentricity
+        fov = attract_LOS
+        sectors = Number_sectors
+        sector_width = fov/sectors
+
+        zone_angle = attract_LOS / sectors
+
+        min_point, max_point = segment_endpoints(positions, angles, lengths)
+
+        #neighbours = np.zeros(len=10)
+
+        N = positions.shape[0]
+
+        #relative vectors of every agent to every other agent
+        rel = positions[None, :, :] - positions[:, None, :]   # (N,N,2)
+
+        #x and y headings of each agent
+        cos_i = np.cos(angles)[:, None]   # (N,1)
+        sin_i = np.sin(angles)[:, None]   # (N,1)
+
+        #expand to (N,N)
+        cos_i = np.repeat(cos_i, N, axis=1)
+        sin_i = np.repeat(sin_i, N, axis=1)
+
+        #body-frame of agent i
+        x_rel = rel[:, :, 0]
+        y_rel = rel[:, :, 1]
+
+        #rotate relative vectors into body frame of agent i (apply the rotation matrix)
+        u = x_rel * cos_i + y_rel * sin_i       #forward axis  u>0 = j in front of i, u<0 = j behind i             y?
+        z = x_rel * -sin_i + y_rel * cos_i       #side axis     z>0 = j is to left of i, z<0 = j to right of i     x?
+
+        #angle of j in frame of i, (theta=0 is directily infront of i)
+        angle = np.arctan2(z, u)
+
+        dis, bearing, vec, dist_line = ellipse_distance_hemlrijk(positions, angles, eccentricity, lengths)
+
+        half_len = lengths / 2
+        angular_half_width = np.arctan2(half_len, dis + epsilon)
+
+        theta_max = angle + angular_half_width
+        theta_min = angle - angular_half_width 
+
+        sector_edges = np.linspace(-fov/2, fov/2, sectors + 1)
+
+        sector_mask = np.zeros((N, N), dtype=bool)
+
+
+        theta_max = theta_max[..., None]
+        theta_min = theta_min[..., None]
+
+        a0 = sector_edges[:-1][None, None, :]
+        a1 = sector_edges[1:][None, None, :]
+
+        overlaps = (theta_max >= a0) & (theta_min <= a1)
+
+        overlaps[np.arange(N), np.arange(N), :] = False
+
+        dist_ex = dis[..., None]
+        mask_dis = np.where(overlaps, dist_ex, np.inf)
+
+        j_min = np.argmin(mask_dis, axis=1)
+
+        valid_sector = np.any(overlaps, axis=1)
+
+        i_idx = np.repeat(np.arange(N), sectors)
+        s_idx = np.tile(np.arange(sectors), N)
+        j_idx = j_min.reshape(-1)
+
+        valid = valid_sector.reshape(-1)
+
+        sector_mask[i_idx[valid], j_idx[valid]] = True
+
+        '''
+        for i in range(N):
+            for s in range(sectors):
+                a0 = sector_edges[s]
+                a1 = sector_edges[s+1]
+
+                overlap = ((theta_max[i] >= a0) & (theta_min[i] <= a1))
+
+                if not np.any(overlap):
+                    continue
+
+                j_closest = np.argmin(dis[i, overlap])
+                j_idx = np.where(overlap)[0][j_closest]
+
+                sector_mask[i, j_idx] = True        
+        '''
+
+        return sector_mask
+    
+
+    '''
+
+    def plot_agent_LOS_debug(sim, i=0, N_seCTORS=10, max_range=None):
+        """
+        Visualise FOV and sector blocking for agent i
+        using only existing simulation quantities.
+        """
+
+        pos = sim.pos
+        ang = sim.angle
+        lengths = sim.lengths
+        N = sim.N
+
+        # Run LOS once
+        sector_mask = sim.LOS_block(N_seCTORS)
+
+        # Relative positions
+        rel = pos - pos[i]
+        dist = np.linalg.norm(rel, axis=1)
+
+        # Plot range (purely visual)
+        if max_range is None:
+            max_range = np.percentile(dist[dist > 0], 90)
+
+        fig, ax = plt.subplots(figsize=(7, 7))
+        ax.set_aspect("equal")
+
+        # --- Visible vs blocked neighbours ---
+        visible = sector_mask[i]
+        visible[i] = False
+
+        ax.scatter(
+            pos[~visible, 0],
+            pos[~visible, 1],
+            s=40,
+            facecolors="none",
+            edgecolors="red",
+            label="Blocked"
+        )
+
+        ax.scatter(
+            pos[visible, 0],
+            pos[visible, 1],
+            s=40,
+            color="green",
+            label="Visible"
+        )
+
+        # --- Focal agent ---
+        ax.scatter(pos[i, 0], pos[i, 1], c="black", s=80, zorder=5)
+
+        # Heading arrow
+        ax.plot(
+            [pos[i, 0], pos[i, 0] + np.cos(ang[i])],
+            [pos[i, 1], pos[i, 1] + np.sin(ang[i])],
+            color="black",
+            linewidth=2
+        )
+
+        # --- Field of view ---
+        fov = attract_LOS
+        fov_angles = np.array([
+            ang[i] - fov / 2,
+            ang[i] + fov / 2
+        ])
+
+        for a in fov_angles:
+            ax.plot(
+                [pos[i, 0], pos[i, 0] + max_range * np.cos(a)],
+                [pos[i, 1], pos[i, 1] + max_range * np.sin(a)],
+                color="grey",
+                linewidth=2,
+                alpha=0.8
+            )
+
+        # --- Sector boundaries ---
+        sector_edges = np.linspace(-fov / 2, fov / 2, N_seCTORS + 1)
+        for a in sector_edges:
+            ax.plot(
+                [pos[i, 0], pos[i, 0] + max_range * np.cos(ang[i] + a)],
+                [pos[i, 1], pos[i, 1] + max_range * np.sin(ang[i] + a)],
+                linestyle="--",
+                color="black",
+                alpha=0.4
+            )
+
+        # --- Optional: draw body segments (you already use line agents) ---
+        try:
+            min_pt, max_pt = segment_endpoints(pos, ang, lengths)
+            ax.plot(
+                [min_pt[:, 0], max_pt[:, 0]],
+                [min_pt[:, 1], max_pt[:, 1]],
+                color="blue",
+                alpha=0.3
+            )
+        except Exception:
+            pass
+
+        # --- Formatting ---
+        ax.legend()
+        ax.set_title(f"Agent {i}: FOV and Sector LOS")
+        ax.set_xlim(pos[i, 0] - max_range, pos[i, 0] + max_range)
+        ax.set_ylim(pos[i, 1] - max_range, pos[i, 1] + max_range)
+
+        plt.show()
+        '''
     
 
     def predator():
@@ -426,6 +666,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         angle = self.angle
         N = self.N
 
+        '''        
         #different sims for the three different modes in described in Hemelrijk and Kunz 2003
         if self.mode == "point":
             dist, bearing, vec = point_to_point_distances(pos)
@@ -435,24 +676,53 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
             dist, bearing, vec = vectorized_point_to_segment_distances(pos, min_pt, max_pt)
 
         elif self.mode == "ellipse":
-            dist, bearing, vec = ellipse_distance_hemlrijk(self.pos, self.angle, self.eccentricity)
+            dist, bearing, vec, dist_line = ellipse_distance_hemlrijk(self.pos, self.angle, self.eccentricity, self.lengths)
+            min_pt, max_pt = segment_endpoints(pos, angle, self.lengths)
+            dist_at, bearing_at, vec_at = vectorized_point_to_segment_distances(pos, min_pt, max_pt)
 
         else:
             raise ValueError("Unknown mode")
+        '''
+
+        #for repel and align terms
+        dist, bearing, vec, dist_line = ellipse_distance_hemlrijk(pos, angle, self.eccentricity, self.lengths)        
+        
+        #for attraction terms, different as this segment is not elliptical
+        #min_pt, max_pt = segment_endpoints(self.pos, self.angle, self.lengths)
+        dist_at, bearing_at, vec_at = vectorized_point_to_segment_distances(pos, angle, self.lengths)
+
+
 
         #fill diagonal of distance matrix so the boids dont interact with themselves
         if dist.ndim == 2 and dist.shape[0] == dist.shape[1]:
             np.fill_diagonal(dist, np.inf)
+        if dist_at.ndim == 2 and dist_at.shape[0] == dist_at.shape[1]:
+            np.fill_diagonal(dist_at, np.inf)
         else:
-            raise RuntimeError(f"Distance matrix not square! dist shape={dist.shape}")
-
+            raise RuntimeError(f"Distance matrix not square! dist shape={dist_at.shape}")
+        
         #relative angle of j from frame of i (how agent i views j)
         #bearing = angle from i to j (in world frame)
 
         #rel_bearing = angle_wrap(bearing - angle[:, None]) <<<<<<< old method, not good
-        rel_bearing = angle_wrap(np.arctan2(bearing, angle))
+        rel_bearing = (np.arctan2(bearing, angle))
+        rel_bearing_at = (np.arctan2(bearing_at, angle))
 
-        repel_mask, align_mask, attract_mask = self.LOS_masks(rel_bearing, dist) 
+
+        #repel_mask, align_mask, attract_mask = self.LOS_masks(rel_bearing, dist) 
+        #repel_mask_at, align_mask_at, attract_mask_at = self.LOS_masks(rel_bearing_at, dist_at) 
+
+        sector_mask = self.LOS_block(Number_sectors=10)
+
+
+        repel_mask = self.repel_mask(rel_bearing, dist)
+        align_mask = self.align_mask(rel_bearing, dist)
+        attract_mask = self.attract_mask(rel_bearing_at, dist_at)
+
+
+        #repel_mask = sector_mask & repel_mask
+        #align_mask  = sector_mask & align_mask
+        #attract_mask_at = sector_mask & attract_mask_at
 
         rotation = np.zeros(N)
 
@@ -554,7 +824,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
                     else:
                         scale_factor = attract_scalefactor * active_sort_attract
                     
-                attract_contribution[k] = attract(rel_bearing[i, j], dist[i, j], scale_factor, self.attraction_range, self.aligning_range[i])
+                attract_contribution[k] = attract(rel_bearing_at[i, j], dist_at[i, j], scale_factor, self.attraction_range[i], self.aligning_range[i])
             
 
             rotation_align = 0 if align_.size == 0 else np.mean(align_contribution)
@@ -585,11 +855,12 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         self.centre_dist.append(stats["center_distance"])
         self.near1.append(stats["nearest_neighbor"])
         self.near2.append(stats["second_neighbor"])
-        self.homogeneity_.append(stats["homogeneity"])
+        self.Nearest_Neighbours_.append(stats["Nearest_Neighbours"])
         self.pol_parame.append(stats["polar order parameter"])
         self.group_vel.append(stats["group velocity"])
+        t = self.LOS_block(10)
 
-        return self.pos.copy(), cos, sin, dist#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.homogeneity_.copy()
+        return self.pos.copy(), cos, sin, dist_line#, t#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.Nearest_Neighbours_.copy()
     
 def run_sim(N_vals, fish_size, repeats=25):
     modes = ['point', 'line', 'ellipse']
@@ -598,7 +869,7 @@ def run_sim(N_vals, fish_size, repeats=25):
     avg_near_n = {m: [] for m in modes}
     #avg_polar_order = {m: [] for m in modes}
     #avg_group_vel = {m: [] for m in modes}
-    #avg_homogeneity = {m: [] for m in modes}
+    #avg_Nearest_Neighbours = {m: [] for m in modes}
 
     for mode in modes:
         #print(f"\n=== {mode} ===")
@@ -610,7 +881,7 @@ def run_sim(N_vals, fish_size, repeats=25):
             near_runs = []
             #polar_order_runs = []
             #group_vel_runs = []
-            #homogeneity_runs = []
+            #Nearest_Neighbours_runs = []
 
             for r in range(repeats):
                 sim = HemelrijkSimulation(mode=mode, N=N, size=fish_size)
@@ -629,16 +900,16 @@ def run_sim(N_vals, fish_size, repeats=25):
                 near_runs.append(np.mean(sim.near1[-1000:]))
                 #polar_order_runs.append(np.mean(sim.pol_parame[-1000:]))
                 #group_vel_runs.append(np.mean(sim.group_vel[-1000:]))
-                #homogeneity_runs.append(np.mean(sim.homogeneity_[-1000:]))
+                #Nearest_Neighbours_runs.append(np.mean(sim.Nearest_Neighbours_[-1000:]))
 
             
             avg_centre[mode].append(np.mean(centre_runs))
             avg_near_n[mode].append(np.mean(near_runs))
             #avg_polar_order[mode].append(np.mean(polar_order_runs))
             #avg_group_vel[mode].append(np.mean(group_vel_runs))
-            #avg_homogeneity[mode].append(np.mean(homogeneity_runs))
+            #avg_Nearest_Neighbours[mode].append(np.mean(Nearest_Neighbours_runs))
 
-    return avg_centre, avg_near_n #avg_homogeneity #avg_polar_order, group_vel_runs #avg_centre, avg_near_n, avg_polar_order
+    return avg_centre, avg_near_n #avg_Nearest_Neighbours #avg_polar_order, group_vel_runs #avg_centre, avg_near_n, avg_polar_order
 
 
 
@@ -654,12 +925,12 @@ N_vals = [3, 4, 6, 10, 25, 50, 75, 100]
 #print("\n=== Running SMALL ===")
 #centre_s, near_s = run_sim(N_vals, 'small')
 #pol_order_s, group_vel_s = run_sim(N_vals, 'small')
-#homogeneity_s = run_sim(N_vals, 'small')
+#Nearest_Neighbours_s = run_sim(N_vals, 'small')
 
 #print("\n=== Running LARGE ===")
 #centre_l, near_l = run_sim(N_vals, 'large')
 #pol_order_l, group_vel_l = run_sim(N_vals, 'large')
-#homogeneity_l = run_sim(N_vals, 'large')
+#Nearest_Neighbours_l = run_sim(N_vals, 'large')
 
 
 
@@ -673,23 +944,23 @@ markers = {'point':'o', 'line':'square', 'ellipse':'thin_diamond'}
 
 
 
-### homogeneity plot ###
+### Nearest_Neighbours plot ###
 '''
 fig, axs = plt.subplots(2, 1, figsize=(6, 6))
 ax = axs[0, 0]
 for m in modes:
-    ax.plot(N_vals, homogeneity_s[m], 'o', linestyle=linestyles[m], label=m)
+    ax.plot(N_vals, Nearest_Neighbours_s[m], 'o', linestyle=linestyles[m], label=m)
 ax.set_title('(a)', fontsize='14')
 ax.set_xlabel('Group Size', fontsize='14')
-ax.set_ylabel('Homogeneity', fontsize='14')
+ax.set_ylabel('Nearest_Neighbours', fontsize='14')
 ax.legend(fontsize='14')
 
 ax = axs[0, 1]
 for m in modes:
-    ax.plot(N_vals, homogeneity_l[m], 'o', linestyle=linestyles[m], label=m)
+    ax.plot(N_vals, Nearest_Neighbours_l[m], 'o', linestyle=linestyles[m], label=m)
 ax.set_title('(b)', fontsize='14')
 ax.set_xlabel('Group Size', fontsize='14')
-ax.set_ylabel('Homogeneity', fontsize='14')
+ax.set_ylabel('Nearest_Neighbours', fontsize='14')
 ax.legend(fontsize='14')
 '''
 
@@ -800,11 +1071,129 @@ if __name__ == "__main__":
     #plt.title('(c)', fontsize='14')
 
     def animate(frame):
+        print('frame:', frame)
         pos, cos, sin, dist = sim.step()
         quiv.set_offsets(pos)
         quiv.set_UVC(cos, sin)
+        #print(dist)
         return (quiv,)
 
     anim = FuncAnimation(fig, animate, frames=T, interval=20, blit=False, repeat=False)
     #anim.save("All large, N=50, random spawn.gif", dpi=400)
     plt.show()
+
+
+
+
+
+
+def plot_agent_LOS_debug(sim, i=0, N_seCTORS=10, max_range=None):
+    """
+    Visualise FOV and sector blocking for agent i
+    using only existing simulation quantities.
+    """
+
+    pos = sim.pos
+    ang = sim.angle
+    lengths = sim.lengths
+    N = sim.N
+
+    # Run LOS once
+    sector_mask = sim.LOS_block(N_seCTORS)
+
+    # Relative positions
+    rel = pos - pos[i]
+    dist = np.linalg.norm(rel, axis=1)
+
+    # Plot range (purely visual)
+    if max_range is None:
+        max_range = np.percentile(dist[dist > 0], 90)
+
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.set_aspect("equal")
+
+    # --- Visible vs blocked neighbours ---
+    visible = sector_mask[i]
+    visible[i] = False
+
+    ax.scatter(
+        pos[~visible, 0],
+        pos[~visible, 1],
+        s=40,
+        facecolors="none",
+        edgecolors="red",
+        label="Blocked"
+    )
+
+    ax.scatter(
+        pos[visible, 0],
+        pos[visible, 1],
+        s=40,
+        color="green",
+        label="Visible"
+    )
+
+    # --- Focal agent ---
+    ax.scatter(pos[i, 0], pos[i, 1], c="black", s=80, zorder=5)
+
+    # Heading arrow
+    ax.plot(
+        [pos[i, 0], pos[i, 0] + np.cos(ang[i])],
+        [pos[i, 1], pos[i, 1] + np.sin(ang[i])],
+        color="black",
+        linewidth=2
+    )
+
+    # --- Field of view ---
+    fov = attract_LOS
+    fov_angles = np.array([
+        ang[i] - fov / 2,
+        ang[i] + fov / 2
+    ])
+
+    for a in fov_angles:
+        ax.plot(
+            [pos[i, 0], pos[i, 0] + max_range * np.cos(a)],
+            [pos[i, 1], pos[i, 1] + max_range * np.sin(a)],
+            color="grey",
+            linewidth=2,
+            alpha=0.8
+        )
+
+    # --- Sector boundaries ---
+    sector_edges = np.linspace(-fov / 2, fov / 2, N_seCTORS + 1)
+    for a in sector_edges:
+        ax.plot(
+            [pos[i, 0], pos[i, 0] + max_range * np.cos(ang[i] + a)],
+            [pos[i, 1], pos[i, 1] + max_range * np.sin(ang[i] + a)],
+            linestyle="--",
+            color="black",
+            alpha=0.4
+        )
+
+    # --- Optional: draw body segments (you already use line agents) ---
+    try:
+        min_pt, max_pt = segment_endpoints(pos, ang, lengths)
+        ax.plot(
+            [min_pt[:, 0], max_pt[:, 0]],
+            [min_pt[:, 1], max_pt[:, 1]],
+            color="blue",
+            alpha=0.3
+        )
+    except Exception:
+        pass
+
+    # --- Formatting ---
+    ax.legend()
+    ax.set_title(f"Agent {i}: FOV and Sector LOS")
+    ax.set_xlim(pos[i, 0] - max_range, pos[i, 0] + max_range)
+    ax.set_ylim(pos[i, 1] - max_range, pos[i, 1] + max_range)
+
+    plt.show()
+
+
+sim = HemelrijkSimulation(mode=MODE)
+sim.step()
+
+#plot_agent_LOS_debug(sim, i=0, N_seCTORS=10)
+
