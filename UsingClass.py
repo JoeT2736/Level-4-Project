@@ -8,7 +8,7 @@ import scipy.spatial
 
 
 #N = 10         #number of agents
-D = 25          #domain size (square [0, D] x [0, D])
+D = 10          #domain size (square [0, D] x [0, D])
 T = 600        #number of frames
 stepsize = 0.2  #seconds per update
 #eta = 0.15      #angle noise 
@@ -164,6 +164,7 @@ def ellipse_distance_transform(positions, angles, a_vals, b_vals):
     return dist, bearing, vec
 '''
 
+
 def ellipse_distance_hemlrijk(positions, angles, eccentricity, lengths):
 
     N = positions.shape[0]
@@ -187,8 +188,8 @@ def ellipse_distance_hemlrijk(positions, angles, eccentricity, lengths):
     sin_i = np.repeat(sin_i, N, axis=1)
 
     #body-frame of agent i
-    x_rel = dist_line[:, :, 0]
-    y_rel = dist_line[:, :, 1]
+    x_rel = rel[:, :, 0]
+    y_rel = rel[:, :, 1]
 
     #rotate relative vectors into body frame of agent i (apply the rotation matrix)
     u = x_rel * cos_i + y_rel * sin_i       #forward axis  u>0 = j in front of i, u<0 = j behind i
@@ -216,7 +217,6 @@ def repel(bearing, distance_array, scale_factor):
     #signs of bearing: decide left/right
     signs = np.sign(bearing)
     signs[signs == 0] = np.random.choice([-1, 1], size=(signs == 0).sum())  #if signs is 0, pick a random choice of positive or negative for the interaction
-
     repel_weight = ((0.05 * scale_factor) / (distance_array + epsilon))
     repel_rotate = (-turning_rate * signs * repel_weight)
     return np.mean(repel_rotate)
@@ -239,8 +239,10 @@ def attract(bearing, distance_array, scale_factor, attract_range, align_range):
     sign_to_j = np.sign(bearing)
     sign_to_j[sign_to_j == 0] = 1
 
-    attract_rotate = turning_rate * heading_vals * sign_to_j
-    attract_weight = (0.2 * scale_factor * np.exp(-((distance_array - 0.5 * (attract_range + align_range))/(attract_range - align_range, epsilon))**2))
+    #angles = np.arctan2()
+
+    attract_rotate = turning_rate * bearing  #heading_vals * sign_to_j
+    attract_weight = (0.2 * scale_factor * np.exp(-((distance_array - 0.5 * (attract_range + align_range))/(attract_range - align_range))**2))
     return np.mean(attract_rotate * attract_weight)
 
 ##########################################################
@@ -249,7 +251,7 @@ def attract(bearing, distance_array, scale_factor, attract_range, align_range):
 
 
 class HemelrijkSimulation:          #vvv change to N=None for static plots (but give a number for animation)
-    def __init__(self, mode=None, N=50, size='Large'):
+    def __init__(self, mode=None, N=50, size='large'):
 
         #assert mode in ("point", "line", "ellipse")
         self.mode = mode
@@ -272,6 +274,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         
         #Size array (0 = small, 1 = large) 
         ratio = N   #number of small fish
+        num_predators = 1
         #size_s = np.zeros(ratio, dtype=int)
         #size_l = np.ones(N - ratio, dtype=int)
         #self.size = np.concatenate((size_s, size_l))
@@ -290,6 +293,9 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         self.eccentricity = np.where(self.size == 0, eccentricity_s, eccentricity_l)
         
         ################################################################################
+
+
+        self.pred_pos = np.array([10, 10])
 
 
         self.repulsion_range = np.where(self.size == 0, repulsion_range_s, repulsion_range_l)
@@ -394,22 +400,24 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
 
     def repel_mask(self, rel_bearing, dist):
         LOS_mask = (np.abs(rel_bearing) <= (repel_LOS/2)) #& (rel_bearing >= -repel_LOS/2)
-        range_i = self.repulsion_range[:, None] 
-        mask_distance = dist <= range_i
+        range_repel = self.repulsion_range[:, None] 
+        mask_distance = dist <= range_repel
         mask = mask_distance & LOS_mask
         return mask
     
     def attract_mask(self, rel_bearing, dist):
         LOS_mask = (np.abs(rel_bearing) <= (attract_LOS/2)) #& ((rel_bearing) >= (-attract_LOS / 2)) 
-        range_i = self.attraction_range[:, None] 
-        mask_distance = dist <= range_i
+        range_attract = self.attraction_range[:, None] 
+        range_align = self.aligning_range[:, None] 
+        range_repel = self.repulsion_range[:, None] 
+        mask_distance = (dist <= range_attract) #& (dist > range_align) & (dist > range_repel)
         mask = mask_distance & LOS_mask
         return mask
     
     def align_mask(self, rel_bearing, dist):
         LOS_mask = ((np.abs(rel_bearing) > (repel_LOS/2)) & (np.abs(rel_bearing) <= (attract_LOS/2)))# & (((rel_bearing) < (-repel_LOS/2)) & ((rel_bearing) >= (-attract_LOS/2)))
-        range_i = self.aligning_range[:, None] 
-        mask_distance = dist <= range_i
+        range_align = self.aligning_range[:, None] 
+        mask_distance = dist <= range_align
         mask = mask_distance & LOS_mask
         return mask
 
@@ -528,14 +536,62 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
 
         return sector_mask
     
-
-    def predator():
-        return
+    '''
+    def pred_mask(self, angl2pred):
+        LOS_mask = (np.abs(angl2pred) <= (attract_LOS/2))
+        range_i = self.attraction_range[:, None]
+        mask_distance = self.pred_dist() <= range_i
+        mask = mask_distance & LOS_mask
+        return mask
     
+
+    def pred_dist(self):
+        dist = scipy.spatial.distance.cdist(self.pos, self.pred_pos)
+        dist_matrix = scipy.spatial.distance.squareform(dist)
+        return dist_matrix
+
+
+    #force eqs, fish turn away from predator
+    def predator(self):
+        dist = self.pred_dist()
+        angl2pred = np.arctan2(self.angle, self.pred_pos)
+        signs = np.sign(angl2pred)
+        signs[signs == 0] = np.random.choice([-1, 1], size=(signs == 0).sum())  #if signs is 0, pick a random choice of positive or negative for the interaction
+        rotate = -turning_rate * signs
+        return rotate
+    '''
 
     def current():
         return
     
+
+    '''
+    def attract(self, distance_array, scale_factor):
+        vecs = self.pos[None, :, :], self.pos[:, None, :]
+        vec_angles = np.arctan2(vecs[:, :, 1], vecs[:, :, 0]) #angle from i to j
+        angles2vecs = self.angle - vec_angles
+
+        attract_rotate = turning_rate * angles2vecs
+        attract_weight = (0.2 * scale_factor * np.exp(-((distance_array - 0.5 * (self.attraction_range + self.aligning_range))/(self.attraction_range - self.aligning_range))**2))
+        return np.mean(attract_rotate * attract_weight)
+    
+
+    def attract(self, rel_bearing_ij, distance_ij, scale_factor, attract_range, align_range):
+        """
+        rel_bearing_ij : scalar
+            bearing of j relative to i's heading (already wrapped)
+        distance_ij : scalar
+        """
+
+        attract_weight = (
+            0.2 * scale_factor
+            * np.exp(-((distance_ij - 0.5 * (attract_range + align_range))
+                    / (attract_range - align_range))**2)
+        )
+
+        attract_rotate = turning_rate * rel_bearing_ij
+        return attract_rotate * attract_weight
+    '''
 
 
     #function for one step of simulation
@@ -569,6 +625,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         #min_pt, max_pt = segment_endpoints(self.pos, self.angle, self.lengths)
         dist_at, bearing_at, vec_at = vectorized_point_to_segment_distances(pos, angle, self.lengths)
 
+        #dist_pred, rotate_pred = self.pred_dist(), self.predator()
 
 
         #fill diagonal of distance matrix so the boids dont interact with themselves
@@ -582,21 +639,25 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         #relative angle of j from frame of i (how agent i views j)
         #bearing = angle from i to j (in world frame)
 
-        #rel_bearing = angle_wrap(bearing - angle[:, None]) <<<<<<< old method, not good
-        rel_bearing = (np.arctan2(bearing, angle))
-        rel_bearing_at = (np.arctan2(bearing_at, angle))
+        rel_bearing = angle_wrap(bearing - angle[:, None]) #<<<<<<< old method, not good
+        rel_bearing_at = angle_wrap(bearing_at - angle[:, None])
+
+        #rel_bearing = (np.arctan2(bearing, angle))
+        #rel_bearing_at = (np.arctan2(bearing_at, angle))
 
 
         #repel_mask, align_mask, attract_mask = self.LOS_masks(rel_bearing, dist) 
         #repel_mask_at, align_mask_at, attract_mask_at = self.LOS_masks(rel_bearing_at, dist_at) 
 
-        sector_mask = self.LOS_block(10, dist, bearing)
-        sector_mask_at = self.LOS_block(10, dist_at, bearing_at)
+        #sector_mask = self.LOS_block(10, dist, bearing)
+        #sector_mask_at = self.LOS_block(10, dist_at, bearing_at)
 
-
+        #np.full((N, N), False) #
         repel_mask = self.repel_mask(rel_bearing, dist)
-        align_mask = np.full((N, N), False) #self.align_mask(rel_bearing, dist)
-        attract_mask = np.full((N, N), False) #self.attract_mask(rel_bearing_at, dist_at)
+        align_mask = self.align_mask(rel_bearing, dist)
+        attract_mask = self.attract_mask(rel_bearing_at, dist_at)
+
+        #pred_mask = self.pred_mask()
 
         ### For LOS blocking ###
         #repel_mask = sector_mask & repel_mask
@@ -604,10 +665,12 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         #attract_mask = sector_mask_at & attract_mask
 
         rotation = np.zeros(N)
+        rotation_repel = np.zeros(N)
 
         #find rotation at each time step for all agents i
         for i in range(N):
-
+            
+            
             i_small = (self.size[i] == 0)   #check if focus agent (i) is small or large
 
             ##### repulsion #####
@@ -704,14 +767,33 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
                         scale_factor = attract_scalefactor * active_sort_attract
                     
                 attract_contribution[k] = attract(rel_bearing_at[i, j], dist_at[i, j], scale_factor, self.attraction_range[i], self.aligning_range[i])
-            
+        
+
+                #self.attract(dist_at[i, j], scale_factor)    
+                
 
             rotation_align = 0 if align_.size == 0 else np.mean(align_contribution)
             rotation_attract = 0 if attract_.size == 0 else np.mean(attract_contribution)
 
-            rotation[i] = rotation_align + rotation_attract
-            
+            ##### predator response #####
+            '''
+            pred_ = np.where(pred_mask[i])[0]
+            pred_contribution = np.zeros(len(pred_))
 
+            for j in enumerate(pred_):
+
+                pred_contribution[j] = self.predator()
+
+            rotation_pred = 0 if pred_.size == 0 else np.mean(pred_contribution)
+            '''
+
+            if (align_.size > 0) or (attract_.size > 0):
+                rotation[i] = rotation_align + rotation_attract
+
+            else:
+                rotation[i] = 0
+
+    
         #adding rotation to original angle
         mean_heading = angle + rotation * stepsize
                                                       #vvvvvvvvvvv = noise
@@ -968,6 +1050,7 @@ if __name__ == "__main__":
 
     quiv = ax.quiver(sim.pos[:, 0], sim.pos[:, 1], np.cos(sim.angle), np.sin(sim.angle),
                      angles='xy', scale_units='xy', pivot='mid', color=colors)
+    pred = ax.plot(sim.pred_pos[0], sim.pred_pos[1], color='red')
 
     #plt.title(f"Hemelrijk-style simulation — mode: {MODE}", fontsize=14)
     #plt.title('(c)', fontsize='14')
@@ -981,8 +1064,8 @@ if __name__ == "__main__":
         return (quiv,)
 
     anim = FuncAnimation(fig, animate, frames=1000, interval=20, blit=False, repeat=False)
-    anim.save("Only Repulsion Term.gif", dpi=300)
-    #plt.show()
+    #anim.save("Only Repulsion Term.gif", dpi=300)
+    plt.show()
 
 
 
@@ -1107,3 +1190,110 @@ sim.step()
 #plot_agent_LOS_debug(sim, i=0, N_seCTORS=10)
 
 '''
+
+
+
+
+def plot_agent_interaction_regions(sim, i=0, max_range=6.0):
+    """
+    Static plot of interaction regions for focal agent i.
+    """
+
+    pos = sim.pos
+    ang = sim.angle
+    lengths = sim.lengths
+    ecc = sim.eccentricity
+    N = sim.N
+
+    # distances & bearings
+    dist, bearing, vec, dist_line = ellipse_distance_hemlrijk(
+        pos, ang, ecc, lengths
+    )
+    dist_at, bearing_at, vec_at = vectorized_point_to_segment_distances(
+        pos, ang, lengths
+    )
+
+    # relative bearings (FIXED, correct version)
+    rel_bearing = angle_wrap(bearing - ang[:, None])
+    rel_bearing_at = angle_wrap(bearing_at - ang[:, None])
+
+    # masks
+    repel_mask = sim.repel_mask(rel_bearing, dist)
+    align_mask = sim.align_mask(rel_bearing, dist)
+    attract_mask = sim.attract_mask(rel_bearing_at, dist_at)
+
+    # --- Plot ---
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.set_aspect("equal")
+
+    # focal agent
+    ax.scatter(pos[i, 0], pos[i, 1], s=120, c="black", zorder=5)
+    ax.arrow(
+        pos[i, 0], pos[i, 1],
+        np.cos(ang[i]), np.sin(ang[i]),
+        width=0.03, color="black", zorder=6
+    )
+
+    # neighbours by interaction type
+    ax.scatter(
+        pos[repel_mask[i], 0],
+        pos[repel_mask[i], 1],
+        c="red", label="Repulsion", s=60
+    )
+
+    ax.scatter(
+        pos[align_mask[i], 0],
+        pos[align_mask[i], 1],
+        c="orange", label="Alignment", s=60
+    )
+
+    #ax.scatter(
+    #    pos[attract_mask[i], 0],
+    #    pos[attract_mask[i], 1],
+    #    c="blue", label="Attraction", s=60
+    #)
+
+    # non-interacting neighbours
+    none_mask = ~(repel_mask[i] | align_mask[i] | attract_mask[i])
+    none_mask[i] = False
+    ax.scatter(
+        pos[none_mask, 0],
+        pos[none_mask, 1],
+        facecolors="none", edgecolors="grey",
+        label="No interaction"
+    )
+
+    # --- LOS boundaries ---
+    for a in [-repel_LOS/2, repel_LOS/2]:
+        ax.plot(
+            [pos[i, 0], pos[i, 0] + max_range * np.cos(ang[i] + a)],
+            [pos[i, 1], pos[i, 1] + max_range * np.sin(ang[i] + a)],
+            linestyle="--", color="red", alpha=0.6
+        )
+
+    for a in [-attract_LOS/2, attract_LOS/2]:
+        ax.plot(
+            [pos[i, 0], pos[i, 0] + max_range * np.cos(ang[i] + a)],
+            [pos[i, 1], pos[i, 1] + max_range * np.sin(ang[i] + a)],
+            linestyle="--", color="blue", alpha=0.4
+        )
+
+    # --- draw body segments ---
+    min_pt, max_pt = segment_endpoints(pos, ang, lengths)
+    ax.plot(
+        [min_pt[:, 0], max_pt[:, 0]],
+        [min_pt[:, 1], max_pt[:, 1]],
+        color="black", alpha=0.25
+    )
+
+    ax.set_xlim(pos[i, 0] - max_range, pos[i, 0] + max_range)
+    ax.set_ylim(pos[i, 1] - max_range, pos[i, 1] + max_range)
+
+    ax.set_title(f"Interaction regions for agent {i}")
+    ax.legend()
+    plt.show()
+
+
+sim = HemelrijkSimulation(mode=MODE)
+sim.step()
+#plot_agent_interaction_regions(sim, i=0)
