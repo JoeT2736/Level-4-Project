@@ -8,7 +8,7 @@ import scipy.spatial
 
 
 #N = 10         #number of agents
-D = 25          #domain size (square [0, D] x [0, D])
+D = 10          #domain size (square [0, D] x [0, D])
 T = 3000        #number of frames
 stepsize = 0.2  #seconds per update
 #eta = 0.15      #angle noise 
@@ -17,7 +17,7 @@ scale = 3
 epsilon = 1e-6
 v_SD = 0.03     #standard deviation of speed
 direction_SD = np.pi/72     #standard deviation of angle
-turning_rate = (np.pi)  #rad / s
+turning_rate = (np.pi) #rad / s
 
 
 repulsion_range_s = 0.3   #small fish
@@ -50,8 +50,8 @@ length_large = 0.2
 MODE = "ellipse"  
 
 
-#np.random.seed(3)
-np.random.seed(1)
+np.random.seed(3)
+#np.random.seed(1)
 
 
 
@@ -175,11 +175,11 @@ def ellipse_distance_hemlrijk(positions, angles, eccentricity, lengths):
 
     dist_line, bearing, vec = vectorized_point_to_segment_distances(positions, angles, lengths)
 
-
+    
     #relative vectors of every agent to every other agent
     rel = positions[None, :, :] - positions[:, None, :]   # (N,N,2)
 
-    dist_line = dist_line[None, :]  ###### NOT SURE ABOUT THIS ######
+    #dist_line = dist_line[None, :]  ###### NOT SURE ABOUT THIS ######
 
     #x and y headings of each agent
     cos_i = np.cos(angles)[:, None]   # (N,1)
@@ -190,8 +190,11 @@ def ellipse_distance_hemlrijk(positions, angles, eccentricity, lengths):
     sin_i = np.repeat(sin_i, N, axis=1)
 
     #body-frame of agent i
-    x_rel = rel[:, :, 0]
-    y_rel = rel[:, :, 1]
+    #x_rel = rel[:, :, 0]
+    #y_rel = rel[:, :, 1]
+    
+    x_rel = dist_line * np.cos(bearing)
+    y_rel = dist_line * np.sin(bearing)
 
     #rotate relative vectors into body frame of agent i (apply the rotation matrix)
     u = x_rel * cos_i + y_rel * sin_i       #forward axis  u>0 = j in front of i, u<0 = j behind i
@@ -205,9 +208,9 @@ def ellipse_distance_hemlrijk(positions, angles, eccentricity, lengths):
     dist_ellipse = np.sqrt(((u**2) / (e)) + e*(z**2))
 
     #Bearings (not in agent i's frame)
-    bearing = np.arctan2(rel[:, :, 1], rel[:, :, 0])
+    bearing = np.arctan2(y_rel, x_rel)
 
-    return dist_ellipse, bearing, rel, dist_line
+    return dist_ellipse, bearing, vec, dist_line
 
 
 
@@ -228,7 +231,7 @@ def align(distance_array, target_angles, source_angle, scale_factor, align_range
     distance_array = np.atleast_1d(distance_array)
     target = np.atleast_1d(target_angles)
     angle_difference = angular_difference_signed(target, source_angle)
-    align_weight = (scale_factor *  np.exp(-(distance_array - 0.5 * (align_range + repel_range)/(align_range - repel_range))**2))
+    align_weight = (scale_factor *  np.exp(-((distance_array - 0.5 * (align_range + repel_range))/(align_range - repel_range))**2))
     align_rotate = turning_rate * angle_difference * align_weight
     return np.mean(align_rotate)
 
@@ -236,14 +239,9 @@ def align(distance_array, target_angles, source_angle, scale_factor, align_range
 def attract(bearing, distance_array, scale_factor, attract_range, align_range):
     bearing = np.atleast_1d(bearing)
     distance_array = np.atleast_1d(distance_array)
-
-    heading_vals = np.cos(bearing)
     sign_to_j = np.sign(bearing)
-    sign_to_j[sign_to_j == 0] = 1
-
-    #angles = np.arctan2()
-
-    attract_rotate = turning_rate * bearing  #heading_vals * sign_to_j
+    sign_to_j[sign_to_j == 0] = np.random.choice([-1, 1], size=(sign_to_j == 0).sum())
+    attract_rotate = turning_rate * sign_to_j  #heading_vals * sign_to_j
     attract_weight = (0.2 * scale_factor * np.exp(-((distance_array - 0.5 * (attract_range + align_range))/(attract_range - align_range))**2))
     return np.mean(attract_rotate * attract_weight)
 
@@ -252,7 +250,7 @@ def attract(bearing, distance_array, scale_factor, attract_range, align_range):
 
 
 
-class HemelrijkSimulation:          #vvv change to N=None for static plots (but give a number for animation)
+class HemelrijkSimulation:        #vvv change to N=None for static plots (but give a number for animation)
     def __init__(self, mode=None, N=50, size='large'):
 
         #assert mode in ("point", "line", "ellipse")
@@ -328,7 +326,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
 
     #average centre distance (c^t in Hemelrijk and Kunz 2003/5)
     def avg_c_dist(self):
-        diff = self.pos - self.c_grav()          
+        diff = self.c_grav() - self.pos         
         distances = np.linalg.norm(diff, axis=1) 
         return np.mean(distances)  
 
@@ -553,12 +551,13 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
 
 
     #force eqs, fish turn away from predator
-    def predator(self, rel_bearing_to_pred):
+    def predator(self, rel_bearing_to_pred):#, distance_):
         #dist = self.pred_dist()
         signs = np.sign(rel_bearing_to_pred)
         signs[signs == 0] = np.random.choice([-1, 1], size=(signs == 0).sum())  #if signs is 0, pick a random choice of positive or negative for the interaction
-        rotate = -turning_rate * signs
-        return rotate
+        rotate = turning_rate * signs
+        rotate_weight = 1/1
+        return np.mean(rotate * rotate_weight)
     
 
     def current(self):
@@ -618,6 +617,9 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
             raise ValueError("Unknown mode")
         '''
 
+        dist_line1, bearing1, vec1 = vectorized_point_to_segment_distances(pos, angle, self.lengths)
+
+
         #for repel and align terms
         dist, bearing, vec, dist_line = ellipse_distance_hemlrijk(pos, angle, self.eccentricity, self.lengths)        
         
@@ -653,7 +655,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         #np.full((N, N), False) #
         repel_mask = self.repel_mask(rel_bearing, dist)
         align_mask = self.align_mask(rel_bearing, dist)
-        attract_mask = self.attract_mask(rel_bearing_at, dist_at, rel_bearing, dist)
+        attract_mask = self.attract_mask(rel_bearing, dist, rel_bearing, dist)
 
 
         ### For Predator ###
@@ -675,7 +677,6 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
 
         #find rotation at each time step for all agents i
         for i in range(N):
-            
             
             i_small = (self.size[i] == 0)   #check if focus agent (i) is small or large
 
@@ -772,7 +773,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
                     else:
                         scale_factor = attract_scalefactor * active_sort_attract
                     
-                attract_contribution[k] = attract(rel_bearing_at[i, j], dist_at[i, j], scale_factor, self.attraction_range[i], self.aligning_range[i])
+                attract_contribution[k] = attract(rel_bearing[i, j], dist[i, j], scale_factor, self.attraction_range[i], self.aligning_range[i])
         
 
                 #self.attract(dist_at[i, j], scale_factor)    
@@ -794,7 +795,7 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
             
 
             if (align_.size > 0) or (attract_.size > 0) or (rotation_pred > 0):
-                rotation[i] = np.mean(rotation_align) + np.mean(rotation_attract) + np.mean(rotation_pred)
+                rotation[i] = np.mean(rotation_align) + np.mean(rotation_attract) #+ np.mean(rotation_pred)
 
             else:
                 rotation[i] = 0
@@ -827,8 +828,12 @@ class HemelrijkSimulation:          #vvv change to N=None for static plots (but 
         self.group_vel.append(stats["group velocity"])
         #t = self.LOS_block(10)
 
-        return self.pos.copy(), cos, sin, dist_line#, t#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.Nearest_Neighbours_.copy()
+        return self.pos.copy(), cos, sin, dist_line, dist_line1#, t#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.Nearest_Neighbours_.copy()
     
+sim=HemelrijkSimulation(mode=MODE)
+print(sim.step()[3])
+print(sim.step()[4])
+
 def run_sim(N_vals, fish_size, repeats=25):
     modes = ['point', 'line', 'ellipse']
 
@@ -1056,24 +1061,24 @@ if __name__ == "__main__":
 
     quiv = ax.quiver(sim.pos[:, 0], sim.pos[:, 1], np.cos(sim.angle), np.sin(sim.angle),
                      angles='xy', scale_units='xy', pivot='mid', color=colors)
-    pred = ax.scatter(sim.pred_pos[:, 0], sim.pred_pos[:, 1], color='red')
-    pred_range = plt.Circle((sim.pred_pos[:, 0], sim.pred_pos[:, 1]), 5, color='red', fill=False)
-    ax.add_patch(pred_range)
+    #pred = ax.scatter(sim.pred_pos[:, 0], sim.pred_pos[:, 1], color='red')
+    #pred_range = plt.Circle((sim.pred_pos[:, 0], sim.pred_pos[:, 1]), 5, color='red', fill=False)
+    #ax.add_patch(pred_range)
 
     #plt.title(f"Hemelrijk-style simulation — mode: {MODE}", fontsize=14)
     #plt.title('(c)', fontsize='14')
 
     def animate(frame):
         print('frame:', frame)
-        pos, cos, sin, dist = sim.step()
+        pos, cos, sin, dist, b = sim.step()
         quiv.set_offsets(pos)
         quiv.set_UVC(cos, sin)
         #print(dist)
-        return (quiv, pred)
+        return (quiv,)# pred)
 
     anim = FuncAnimation(fig, animate, frames=1000, interval=20, blit=False, repeat=False)
-    anim.save("static predator response.gif", dpi=300)
-    #plt.show()
+    #anim.save("static predator response.gif", dpi=300)
+    plt.show()
 
 
 
