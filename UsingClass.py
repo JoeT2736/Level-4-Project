@@ -250,7 +250,7 @@ def attract(bearing, distance_array, scale_factor, attract_range, align_range):
 
 
 class HemelrijkSimulation:        #vvv change to N=None for static plots (but give a number for animation)
-    def __init__(self, mode=None, N=50, size='large'):
+    def __init__(self, mode=None, N=5, size='large'):
 
         #assert mode in ("point", "line", "ellipse")
         self.mode = mode
@@ -335,7 +335,10 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
     def avg_c_dist(self):
         diff = self.c_grav() - self.pos         
         distances = np.linalg.norm(diff, axis=1) 
-        return np.mean(distances)  
+
+        filtered_distances = [x for x in distances if x < 2]
+
+        return np.mean(filtered_distances)  
 
 
     #nearest neighbour distance
@@ -383,6 +386,10 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         speed = np.linalg.norm(delta) / stepsize
 
         self.prev_cg = cg.copy()
+
+        if speed >= 0.5:
+            return 0
+
         return speed
 
 
@@ -854,7 +861,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
             
 
             if (align_.size > 0) or (attract_.size > 0) or (rotation_pred > 0):
-                rotation[i] = np.mean(rotation_align) + np.mean(rotation_attract) + np.mean(rotation_pred)
+                rotation[i] = np.mean(rotation_align) + np.mean(rotation_attract) #+ np.mean(rotation_pred)
 
             else:
                 rotation[i] = 0
@@ -886,7 +893,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         self.group_vel.append(stats["group velocity"])
         #t = self.LOS_block(10)
 
-        return self.pos.copy(), cos, sin, dist_line, dist_line1#, t#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.Nearest_Neighbours_.copy()
+        return self.pos.copy(), cos, sin, dist_line, stats["group velocity"]#, t#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.Nearest_Neighbours_.copy()
     
 
     def pred_step(self):
@@ -927,7 +934,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
 
             if distances[chosen] <= 0.1:
-                print("caught")
+                #print("caught")
 
                 #predator stops moving for some frames, then starts moving again at random position
                 for _ in range(10):
@@ -1204,7 +1211,7 @@ if __name__ == "__main__":
         pred.set_offsets(pred_pos)
         pred.set_UVC(pred_cos, pred_sin)
         pred_range.center = pred_pos[0]
-        #print(dist)
+        print(b)
         return (quiv, pred, pred_range)
 
     anim = FuncAnimation(fig, animate, frames=1000, interval=20, blit=False, repeat=False)
