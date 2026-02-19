@@ -51,7 +51,7 @@ MODE = "ellipse"
 
 
 #np.random.seed(3)
-np.random.seed(1)
+np.random.seed(2)
 
 
 
@@ -222,7 +222,7 @@ def repel(bearing, distance_array, scale_factor):
     signs = np.sign(bearing)
     signs[signs == 0] = np.random.choice([-1, 1], size=(signs == 0).sum())  #if signs is 0, pick a random choice of positive or negative for the interaction
     repel_weight = ((0.05 * scale_factor) / (distance_array + epsilon))
-    repel_rotate = (-turning_rate * signs * repel_weight)
+    repel_rotate = (-signs * repel_weight )#* turning_rate)
     return np.mean(repel_rotate)
 
 
@@ -231,7 +231,7 @@ def align(distance_array, target_angles, source_angle, scale_factor, align_range
     target = np.atleast_1d(target_angles)
     angle_difference = angular_difference_signed(target, source_angle)
     align_weight = (scale_factor *  np.exp(-((distance_array - 0.5 * (align_range + repel_range))/(align_range - repel_range))**2))
-    align_rotate = turning_rate * angle_difference * align_weight
+    align_rotate = angle_difference * align_weight * turning_rate
     return np.mean(align_rotate)
 
 
@@ -240,7 +240,7 @@ def attract(bearing, distance_array, scale_factor, attract_range, align_range):
     distance_array = np.atleast_1d(distance_array)
     sign_to_j = np.sign(bearing)
     sign_to_j[sign_to_j == 0] = np.random.choice([-1, 1], size=(sign_to_j == 0).sum())
-    attract_rotate = turning_rate * bearing  #heading_vals * sign_to_j
+    attract_rotate = bearing #* turning_rate  #heading_vals * sign_to_j
     attract_weight = (0.2 * scale_factor * np.exp(-((distance_array - 0.5 * (attract_range + align_range))/(attract_range - align_range))**2))
     return np.mean(attract_rotate * attract_weight)
 
@@ -253,7 +253,8 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
     def __init__(self, mode=None, N=None, size='large'):
 
         #assert mode in ("point", "line", "ellipse")
-        self.mode = mode
+        # normalize mode to lowercase so step() comparisons are case-insensitive
+        self.mode = mode.lower() if isinstance(mode, str) else mode
         self.N = 50
         self.D = D
 
@@ -268,6 +269,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         self.v0 = v0
         self.v_SD = v_SD
         self.v = np.random.normal(loc=self.v0, scale=self.v_SD, size=self.N)
+        self.see_pred = np.zeros(self.N, dtype=bool)   #whether each fish sees the predator or not (1 if yes, 0 if no)
 
 
         ############### use for animations, mix of large and small ###############
@@ -295,14 +297,20 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         ################################################################################
 
 
-        self.pred_pos = np.full((num_predators, 2), fill_value=D/2)
+        self.pred_pos = np.full((num_predators, 2), fill_value=D/3)
         self.pred_angle = np.random.uniform(-np.pi, np.pi, size=num_predators)
         self.pred_angle_SD = np.pi/72
-        self.pred_speed = 0.5
+        self.pred_speed_cruise = 0.2
+        self.pred_speed_hunt = 0.5
         self.pred_speed_SD = 0.05
         self.pred_mask_distance = 5.0
         self.pred_stop_duration = 50
         self.pred_stop_counter = np.zeros(num_predators, dtype=int)
+        self.pred_turning_rate = turning_rate / 20
+        self.pred_turning_rate_SD = self.pred_turning_rate / 5
+        self.pred_stepsize = stepsize * 1
+        self.fish_caught = 0
+        self.pred_attack_motion = False
 
         self.repulsion_range = np.where(self.size == 0, repulsion_range_s, repulsion_range_l)
         self.aligning_range = np.where(self.size == 0, aligning_range_s, aligning_range_l)
@@ -321,12 +329,24 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         self.group_vel = []
         self.prev_cg = None
 
+        self.centre_dist_threat = []
+        self.near1_threat = []
+        self.near2_threat = []
+        self.Nearest_Neighbours_threat = []
+        self.pol_parame_threat = []
+        self.group_vel_threat = []
+        self.prev_cg_threat = None
+
     #function for random speed element
     def speed(self):
         return np.random.normal(loc=self.v0, scale=self.v_SD, size=self.N)
     
-    def speed_pred(self):
-        return np.random.normal(loc=self.pred_speed, scale=self.pred_speed_SD, size=self.pred_pos.shape[0])
+    def speed_pred_cruise(self):
+        return np.random.normal(loc=self.pred_speed_cruise, scale=self.pred_speed_SD, size=self.pred_pos.shape[0])
+    
+    def speed_pred_hunt(self):
+        return np.random.normal(loc=self.pred_speed_hunt, scale=self.pred_speed_SD, size=self.pred_pos.shape[0])
+    
 
     
 
@@ -359,13 +379,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         filtered_sort_dist = [x for x in sort_dist[:, 0] if x < 1]
 
         n1 = np.mean(filtered_sort_dist)   #average distance to nearest neighbour (over all fish)
-        n2 = np.mean(sort_dist[:, 1])   #average distance to second nearest neighbour
-
-        #filtered_n1 = [x for x in sort_dist[:, 0] if x < 1]
-        #filtered_n2 = [x for x in sort_dist[:, 1] if x < 1]
-
-        #filtered_n1_mean = np.mean(filtered_n1)
-        #filtered_n2_mean = np.mean(filtered_n2)
+        n2 = np.mean(sort_dist[:, 1])   #average distance to second nearest neighbour``
 
         return n1, n2
     
@@ -407,31 +421,51 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
     #function to see when fish are moving to avoid predator (0 dont see, 1 see and move away)
     #use for looking at differences in motion when avoiding pred and when moving normally (e.g. for looking at differences in stats when avoiding pred vs not)
-    def avoidance_motion(self, rotation_pred):
-        
-        counter = np.zeros(T)
-        for i in range(counter):
-            if rotation_pred > 0:
-                counter[i] = 1
+    def under_threat(self):
 
-        return counter
+        check = self.see_pred == True
+        
+        if check.sum() > self.N//2:  #if more than half the fish see the predator, count as under threat
+            return 1
+        else:
+            return 0
 
     
 
     #all stats in one function
     def stats(self):
-        c = self.avg_c_dist()
-        n1, n2 = self.near_n()
-        h = n1 / n2
-        p = self.pol_param()
-        gv = self.group_velocity()
 
-        return {"center_distance": c,
-            "nearest_neighbor": n1,
-            "second_neighbor": n2,
-            "Nearest_Neighbours": h,
-            "polar order parameter": p,
-            "group velocity": gv}
+        #stats during normal motion
+        if self.under_threat() == 0:
+
+            c = self.avg_c_dist()
+            n1, n2 = self.near_n()
+            h = n1 / n2
+            p = self.pol_param()
+            gv = self.group_velocity()
+
+            return {"center_distance": c,
+                "nearest_neighbor": n1,
+                "second_neighbor": n2,
+                "Nearest_Neighbours": h,
+                "polar order parameter": p,
+                "group velocity": gv}
+        
+        #stats when any fish see predator
+        else:
+
+            c_threat = self.avg_c_dist()
+            n1_threat, n2_threat = self.near_n()
+            h_threat = n1_threat / n2_threat
+            p_threat = self.pol_param()
+            gv_threat = self.group_velocity()
+
+            return {"center_distance_threat": c_threat,
+                "nearest_neighbor_threat": n1_threat,
+                "second_neighbor_threat": n2_threat,
+                "Nearest_Neighbours_threat": h_threat,
+                "polar order parameter_threat": p_threat,
+                "group velocity_threat": gv_threat}
     
 
 
@@ -458,34 +492,6 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         mask = mask_distance & LOS_mask
         return mask
 
-
-    
-    '''
-    def LOS_masks(self, rel_bearing, dist):
-
-        #line of sight masks
-        repel_LOS_mask = np.abs(rel_bearing) <= (repel_LOS / 2.0)
-        align_LOS_mask = (np.abs(rel_bearing) > (repel_LOS / 2.0)) & (np.abs(rel_bearing) <= (np.deg2rad(90) + repel_LOS / 2.0))
-        attract_LOS_mask = np.abs(rel_bearing) <= (attract_LOS / 2.0)
-
-        # Distance masks depend on each focal agent i's view of neighbors j:
-        # For point mode, each agent's repulsion/align ranges depend on the focal agent's own size.
-        # For line/ellipse we'll follow same logic: each focal agent i uses its own repulsion/align ranges.
-        rep_range_i = self.repulsion_range[:, None]     # (N,1)
-        align_range_i = self.aligning_range[:, None]    # (N,1)
-        attract_range = self.attraction_range
-
-        repel_mask_distance = dist <= rep_range_i
-        align_mask_distance = (dist > rep_range_i) & (dist <= align_range_i)
-        attract_mask_distance = (dist > align_range_i) & (dist <= attract_range)
-
-        
-        repel_mask = repel_mask_distance & repel_LOS_mask
-        align_mask = align_mask_distance & align_LOS_mask
-        attract_mask = attract_mask_distance & attract_LOS_mask
-
-        return repel_mask, align_mask, attract_mask
-    '''
 
 
     #Divide field of view into a number of sectors. Only the closeset neighbour in that sector can be perceived. If neighbour covers multiple zones,
@@ -518,22 +524,6 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         a0 = sector_edges[:-1][None, None, :]
         a1 = sector_edges[1:][None, None, :]
 
-        
-        ### think this is wrong ###
-
-        #go in circle round each sector -> check which is closest
-
-        sector_agents = np.zeros(self.N)
-
-        #######
-
-        #for i in range(sectors):
-            
-        #    sector_agents[i] = (theta_max[i] <= a0) & (theta_min[i] >= a1)
-
-        #mask_dis = sector_agents[distance]
-
-        #######
 
         overlaps = (theta_max >= a0) & (theta_min <= a1)
 
@@ -553,23 +543,6 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         valid = valid_sector.reshape(-1)
 
         sector_mask[i_idx[valid], j_idx[valid]] = True
-
-        '''
-        for i in range(N):
-            for s in range(sectors):
-                a0 = sector_edges[s]
-                a1 = sector_edges[s+1]
-
-                overlap = ((theta_max[i] >= a0) & (theta_min[i] <= a1))
-
-                if not np.any(overlap):
-                    continue
-
-                j_closest = np.argmin(dis[i, overlap])
-                j_idx = np.where(overlap)[0][j_closest]
-
-                sector_mask[i, j_idx] = True        
-        '''
 
         return sector_mask
     
@@ -603,26 +576,115 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
 
     #force eqs, fish turn away from predator
-    def predator_fish_response(self, rel_bearing_to_pred):#, distance_):
+    def prey_scatter(self, rel_bearing_to_pred):#, distance_):
         #dist = self.pred_dist()
         signs = np.sign(rel_bearing_to_pred)
         signs[signs == 0] = np.random.choice([-1, 1], size=(signs == 0).sum())  #if signs is 0, pick a random choice of positive or negative for the interaction
         rotate = -turning_rate * signs
         rotate_weight = 2
+
         return np.mean(rotate * rotate_weight)
     
 
-    #pred move staright at closeset fish
-    def pred_rotate(self):
+
+    #def prey_
+
+
+    #check fucntion
+    def pred_vision_areas(self, distance2prey, bearing_of_prey):
+
+        fov = attract_LOS
+        sectors, areas = 5, 3
+        sector_edges = np.linspace(-fov/2, fov/2, sectors + 1)
+        area_edges = np.linspace(0, self.pred_mask_distance, areas + 1)
+
+        #for prey with body length
+        half_len = self.lengths / 2 
+        angular_half_width = np.arctan2(half_len, distance2prey)
+
+        #max and min angles the line segment can be seen at
+        theta_max = bearing_of_prey + angular_half_width
+        theta_min = bearing_of_prey - angular_half_width 
+
+        #max and min distances fish can be seen 
+        x_max = distance2prey * np.cos(theta_max)
+        x_min = distance2prey * np.cos(theta_min)
+        y_max = distance2prey * np.sin(theta_max)
+        y_min = distance2prey * np.sin(theta_min)
+
+        #max and min positions as a vector (N, num_pred, 2)
+        prey_max_pos = np.stack([x_max, y_max], axis=-1)
+        prey_min_pos = np.stack([x_min, y_min], axis=-1)
+
+        #positions relative to pred
+        rel_max_pos = prey_max_pos - self.pred_pos[None, :, :]  # (N, num_pred, 2)
+        rel_min_pos = prey_min_pos - self.pred_pos[None, :, :]  # (N, num_pred, 2)
+
+        #angles relative to pred frame
+        rel_max_angle = angle_wrap(theta_max - self.pred_angle[None, :])
+        rel_min_angle = angle_wrap(theta_min - self.pred_angle[None, :])
+
+        #max and min sector and area edges (the different zones the prey can be in)
+        a0 = sector_edges[:-1][None, None, :]
+        a1 = sector_edges[1:][None, None, :]
+        
+        b0 = area_edges[:-1][None, None, :]
+        b1 = area_edges[1:][None, None, :]
+
+        #find what zone the prey is in
+        in_sector = (rel_max_angle >= a0) & (rel_min_angle <= a1)
+        in_area = (rel_max_pos[..., 0] >= b0) & (rel_min_pos[..., 0] <= b1) & (rel_max_pos[..., 1] >= b0) & (rel_min_pos[..., 1] <= b1)
+        in_zone = in_sector & in_area
+
+        #number counter for fish in each zone
+        zone_counts = np.sum(in_zone, axis=0)  # (num_pred, sectors, areas)
+
+        return in_zone, zone_counts
+
+
+    #pred move straight at closeset fish
+    def pred_rotate(self, rel_bearing_to_pred, distance2prey, bearing_of_prey):
         dist = self.pred_dist()
-        closest_fish = np.argmin(dist, axis=1)
-        direction_to_fish = self.pos[closest_fish] - self.pred_pos
+        #closest_fish = np.argmin(dist, axis=1)
+        #direction_to_fish = self.pos[closest_fish] - self.pred_pos
+        #angle_to_fish = np.arctan2(direction_to_fish[:, 1], direction_to_fish[:, 0])
+        #direction = angle_wrap(angle_to_fish - self.pred_angle)
+        #sign = np.sign(direction)
+        #sign[sign == 0] = np.random.choice([-1, 1], size=(sign == 0).sum())
+        #rotate = self.pred_turning_rate * sign
+
+
+        ### add random choosing element ###
+        #confusion to which fish to target
+        crowdedness = np.sum(self.pred_mask_fish(rel_bearing_to_pred), axis=0) #number of fish visible to each predator
+
+
+        #crowedness of each fish (number of fish in its zone and the zone directly behind it)
+        in_zone, zone_counts = self.pred_vision_areas(distance2prey, bearing_of_prey)
+        crowdedness = np.sum(zone_counts, axis=(1,2))  #sum over sectors and areas for each fish
+
+        attractivness = np.zeros(self.pred_pos.shape[0])  #attractiveness of each fish, if >0.1 then candidate to be chased
+        chased = np.zeros(self.pred_pos.shape[0])  #whether the fish was the one targeted in the last frame (1 if yes, 0 if no)
+
+        for i in range(self.pred_pos.shape[0]):
+            if crowdedness[i] > 3:
+                                                                                                          #vvv if that was the one targetted in the last frame (reduces constant switching of target fish)
+                attractivness[i] = (1 - dist[i] / self.pred_mask_distance[i]) * (0.5 / crowdedness[i]**2) * 5 if chased[i] == 1 else (1 - dist[i] / self.pred_mask_distance[i]) * (0.5 / crowdedness[i]**2)
+
+        candidate = np.argmax(attractivness)
+        chased[candidate] = 1   
+
+        #pick fish (highest attractivness, above threshold)
+        target = candidate if attractivness[candidate] > 0.1 else None
+
+        direction_to_fish = self.pos[target] - self.pred_pos
         angle_to_fish = np.arctan2(direction_to_fish[:, 1], direction_to_fish[:, 0])
-        direction = angle_wrap(angle_to_fish - self.pred_angle)
-        sign = np.sign(direction)
-        sign[sign == 0] = np.random.choice([-1, 1], size=(sign == 0).sum())
-        rotate = turning_rate * sign
-        return rotate
+        #direction = angle_wrap(angle_to_fish - self.pred_angle)
+        #sign = np.sign(direction)
+        #sign[sign == 0] = np.random.choice([-1, 1], size=(sign == 0).sum())
+        rotate2 = self.pred_turning_rate * angle_to_fish
+
+        return rotate2
     
 
     def pred_mask(self):
@@ -631,43 +693,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         mask = dist_mask #& LOS_mask
         return mask
         
-    
 
-    def current(self):
-        return
-
-
-
-    
-    
-
-    '''
-    def attract(self, distance_array, scale_factor):
-        vecs = self.pos[None, :, :], self.pos[:, None, :]
-        vec_angles = np.arctan2(vecs[:, :, 1], vecs[:, :, 0]) #angle from i to j
-        angles2vecs = self.angle - vec_angles
-
-        attract_rotate = turning_rate * angles2vecs
-        attract_weight = (0.2 * scale_factor * np.exp(-((distance_array - 0.5 * (self.attraction_range + self.aligning_range))/(self.attraction_range - self.aligning_range))**2))
-        return np.mean(attract_rotate * attract_weight)
-    
-
-    def attract(self, rel_bearing_ij, distance_ij, scale_factor, attract_range, align_range):
-        """
-        rel_bearing_ij : scalar
-            bearing of j relative to i's heading (already wrapped)
-        distance_ij : scalar
-        """
-
-        attract_weight = (
-            0.2 * scale_factor
-            * np.exp(-((distance_ij - 0.5 * (attract_range + align_range))
-                    / (attract_range - align_range))**2)
-        )
-
-        attract_rotate = turning_rate * rel_bearing_ij
-        return attract_rotate * attract_weight
-    '''
 
 
     #function for one step of simulation
@@ -686,8 +712,8 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         pred_distances = self.pred_dist()
 
         #compute vectors from each fish to each predator (N, num_pred, 2)
-        pred_rel = self.pos[:, None, :] - self.pred_pos[None, :, :]
-        pred_bearing_to_pred = np.arctan2(pred_rel[:, :, 1], pred_rel[:, :, 0])
+        #pred_rel = self.pos[:, None, :] - self.pred_pos[None, :, :]
+        #pred_bearing_to_pred = np.arctan2(pred_rel[:, :, 1], pred_rel[:, :, 0])
 
         #relative bearing in pred frame (N, num_pred)
         pred_rel_bearing_to_pred = angle_wrap(self.angle[:, None] - bearing_to_pred)
@@ -700,6 +726,10 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         pred_move_mask = np.zeros(num_pred, dtype=bool)
 
         #choose nearest visible fish per predator and aim at it
+
+        #caught counter
+        #fish_caught = 0
+
         for j in range(num_pred):
             candidates = np.where(pred_mask[:, j])[0]
             if candidates.size == 0:
@@ -707,7 +737,13 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
             #nearest fish
             local_dists = pred_distances[candidates, j]
-            chosen = candidates[np.argmin(local_dists)]
+            sorted_candidates = np.sort(local_dists).argsort()  #sort candidates by distance
+            #chosen = candidates[np.argmin(local_dists)]
+            close_five = sorted_candidates[:5]  #indices of the five closest candidates
+            prob_dist = np.exp(-local_dists[close_five])  #convert distances to probabilities (closer fish more likely to be chosen)
+            prob_dist /= np.sum(prob_dist)  #normalize to sum to 1
+            chosen = np.random.choice(close_five, p=prob_dist)#closest five candidates
+
 
             #direction to chosen fish
             direction_to_fish = self.pos[chosen] - self.pred_pos[j]
@@ -715,11 +751,16 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
             #set predator heading directly at fish 
             pred_update_angle[j] = np.random.normal(angle_to_fish, self.pred_angle_SD)
+
+            #update angle using function
+            #pred_update_angle[j] = np.random.normal(self.pred_rotate(rel_bearing_to_pred[:, j], pred_distances[:, j], pred_bearing_to_pred[:, j]), self.pred_angle_SD)
+
             pred_move_mask[j] = True
 
 
             if pred_distances[chosen] <= 0.1:
                 print("caught")
+                self.fish_caught +=1
                 self.pred_stop_counter[j] = self.pred_stop_duration
 
                 #delete fish
@@ -733,6 +774,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
                 self.aligning_range = np.array([x for i, x in enumerate(self.aligning_range) if i != chosen])
                 self.attraction_range = np.array([x for i, x in enumerate(self.attraction_range) if i != chosen])
                 self.v = np.array([x for i, x in enumerate(self.v) if i != chosen])
+                self.see_pred = np.array([x for i, x in enumerate(self.see_pred) if i != chosen])
 
 
                 #predator stops moving for some frames, then starts moving again at random angle
@@ -745,18 +787,32 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         #no fish in mask
         no_move = ~pred_move_mask
         if np.any(no_move):
-            pred_update_angle[no_move] = np.random.normal(self.pred_angle[no_move], self.pred_angle_SD)
+            pred_update_angle[no_move] = np.random.normal(self.pred_angle[no_move], self.pred_turning_rate_SD)
 
-        pred_speeds = self.speed_pred()
-        # freeze stopped predators
+        pred_speeds_cruise = self.speed_pred_cruise()
+        pred_speeds_hunt = self.speed_pred_hunt()
+
+        pred_speeds = pred_speeds_cruise if not np.any(pred_move_mask) else pred_speeds_hunt
+        self.pred_attack_motion = True if np.any(pred_move_mask) else False
+
+        #freeze stopped predators
         pred_speeds[self.pred_stop_counter > 0] = 0.0
         pred_update_angle[self.pred_stop_counter > 0] = np.random.uniform(-1, 1) * turning_rate * 10
+
+        # limit predator turning per step
+        if not pred_update_angle[self.pred_stop_counter > 0].size == 1:
+            delta = angle_wrap(pred_update_angle - self.pred_angle)
+            # if `self.pred_turning_rate` is radians per step use directly,
+            # otherwise if it's radians per unit time multiply by step: * self.pred_stepsize
+            max_turn = self.pred_turning_rate
+            delta = np.clip(delta, -max_turn, max_turn)
+            pred_update_angle = angle_wrap(self.pred_angle + delta)
 
         pred_cos = np.cos(pred_update_angle)
         pred_sin = np.sin(pred_update_angle)
 
-        pred_vx = pred_cos * pred_speeds * stepsize
-        pred_vy = pred_sin * pred_speeds * stepsize
+        pred_vx = pred_cos * pred_speeds * self.pred_stepsize
+        pred_vy = pred_sin * pred_speeds * self.pred_stepsize
 
         self.pred_pos[:, 0] = (self.pred_pos[:, 0] + pred_vx) % self.D
         self.pred_pos[:, 1] = (self.pred_pos[:, 1] + pred_vy) % self.D
@@ -776,33 +832,33 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         angle = self.angle
         N = self.N
 
-        '''        
+             
         #different sims for the three different modes in described in Hemelrijk and Kunz 2003
         if self.mode == "point":
             dist, bearing, vec = point_to_point_distances(pos)
 
         elif self.mode == "line":
-            min_pt, max_pt = segment_endpoints(pos, angle, self.lengths)
-            dist, bearing, vec = vectorized_point_to_segment_distances(pos, min_pt, max_pt)
+            #min_pt, max_pt = segment_endpoints(pos, angle, self.lengths)
+            dist, bearing, vec = vectorized_point_to_segment_distances(pos, angle, self.lengths)
 
         elif self.mode == "ellipse":
-            dist, bearing, vec, dist_line = ellipse_distance_hemlrijk(self.pos, self.angle, self.eccentricity, self.lengths)
-            min_pt, max_pt = segment_endpoints(pos, angle, self.lengths)
-            dist_at, bearing_at, vec_at = vectorized_point_to_segment_distances(pos, min_pt, max_pt)
+            dist, bearing, vec, dist_line = ellipse_distance_hemlrijk(pos, angle, self.eccentricity, self.lengths)
+            #min_pt, max_pt = segment_endpoints(pos, angle, self.lengths)
+            dist_at, bearing_at, vec_at = vectorized_point_to_segment_distances(pos, angle, self.lengths)
 
         else:
             raise ValueError("Unknown mode")
-        '''
+        
 
         #dist_line1, bearing1, vec1 = vectorized_point_to_segment_distances(pos, angle, self.lengths)
 
 
         #for repel and align terms
-        dist, bearing, vec, dist_line = ellipse_distance_hemlrijk(pos, angle, self.eccentricity, self.lengths)        
+        #dist, bearing, vec, dist_line = ellipse_distance_hemlrijk(pos, angle, self.eccentricity, self.lengths)        
         
         #for attraction terms, different as this segment is not elliptical
         #min_pt, max_pt = segment_endpoints(self.pos, self.angle, self.lengths)
-        dist_at, bearing_at, vec_at = vectorized_point_to_segment_distances(pos, angle, self.lengths)
+        #dist_at, bearing_at, vec_at = vectorized_point_to_segment_distances(pos, angle, self.lengths)
 
         #dist_pred, rotate_pred = self.pred_dist(), self.predator()
 
@@ -810,8 +866,8 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         #fill diagonal of distance matrix so the boids dont interact with themselves
         if dist.ndim == 2 and dist.shape[0] == dist.shape[1]:
             np.fill_diagonal(dist, np.inf)
-        if dist_at.ndim == 2 and dist_at.shape[0] == dist_at.shape[1]:
-            np.fill_diagonal(dist_at, np.inf)
+        #if dist_at.ndim == 2 and dist_at.shape[0] == dist_at.shape[1]:
+            #np.fill_diagonal(dist_at, np.inf)
         else:
             raise RuntimeError(f"Distance matrix not square! dist shape={dist_at.shape}")
         
@@ -819,7 +875,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         #bearing = angle from i to j (in world frame)
 
         rel_bearing = angle_wrap(bearing - angle[:, None]) 
-        rel_bearing_at = angle_wrap(bearing_at - angle[:, None])
+        #rel_bearing_at = angle_wrap(bearing_at - angle[:, None])
 
         #rel_bearing = (np.arctan2(bearing, angle))
         #rel_bearing_at = (np.arctan2(bearing_at, angle))
@@ -830,10 +886,24 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
 
         #np.full((N, N), False) #
+
+        
+        # compute vectors from each fish to each predator: shape (N, num_pred, 2)
+        rel_pred = self.pos[:, None, :] - self.pred_pos[None, :, :]
+        bearing_to_pred = np.arctan2(rel_pred[:, :, 1], rel_pred[:, :, 0])
+        rel_bearing_to_pred = angle_wrap(bearing_to_pred - self.angle[:, None])
+        pred_mask = self.pred_mask_fish(rel_bearing_to_pred)
+
+        #shape (N, num_pred)
+        pred_distances = self.pred_dist()
+
+
+
         repel_mask = self.repel_mask(rel_bearing, dist)
         align_mask = self.align_mask(rel_bearing, dist)
         attract_mask = self.attract_mask(rel_bearing, dist, rel_bearing, dist)
 
+        fish_pred_mask = self.pred_mask_fish(rel_bearing_to_pred)
 
 
         ### For LOS blocking ###
@@ -848,128 +918,141 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
         #find rotation at each time step for all agents i
         for i in range(N):
-            
-            i_small = (self.size[i] == 0)   #check if focus agent (i) is small or large
 
-            ##### repulsion #####
+            self.see_pred[i] = 1 if bool(np.any(fish_pred_mask[i])) else 0
 
-            repel_ = np.where(repel_mask[i])[0]
+            if np.any(self.see_pred[i]) == 0:
 
-            if repel_.size > 0:  #compute if there are neighbours in repulsion zone
-                
-                contribution = np.zeros(len(repel_))     #set up array to store the contribution of repulsion due to each neighbour
+                i_small = (self.size[i] == 0)   #check if focus agent (i) is small or large
 
-                # k = counter, j = element ???
-                for k, j in enumerate(repel_):  #for each value in repel_ (for each neighbour j)        enumerate adds a counter to the element depending on its position in the list
+                ##### repulsion #####
 
-                    j_small = (self.size[j] == 0)   #check size of neighbour
+                repel_ = np.where(repel_mask[i])[0]
 
-                    if i_small:     #if focus agent small
-
-                        if j_small:     #if neighbour small, change scale factor
-                            scale_factor = repel_scalefactor_s / active_sort_repel
-                        
-                        else:   #if neighbour large
-                            scale_factor = repel_scalefactor_s * active_sort_repel * risk_avoidance
+                if repel_.size > 0:  #compute if there are neighbours in repulsion zone
                     
-                    else:   #if focus agent large
+                    contribution = np.zeros(len(repel_))     #set up array to store the contribution of repulsion due to each neighbour
+
+                    # k = counter, j = element ???
+                    for k, j in enumerate(repel_):  #for each value in repel_ (for each neighbour j)        enumerate adds a counter to the element depending on its position in the list
+
+                        j_small = (self.size[j] == 0)   #check size of neighbour
+
+                        if i_small:     #if focus agent small
+
+                            if j_small:     #if neighbour small, change scale factor
+                                scale_factor = repel_scalefactor_s / active_sort_repel
+                            
+                            else:   #if neighbour large
+                                scale_factor = repel_scalefactor_s * active_sort_repel * risk_avoidance
+                        
+                        else:   #if focus agent large
+
+                            if j_small:
+                                scale_factor = repel_scalefactor_l * active_sort_repel
+
+                            else:
+                                scale_factor = repel_scalefactor_l / active_sort_repel
+                        
+                        contribution[k] = repel(rel_bearing[i, j], dist[i, j], scale_factor)
+                    
+                    rotation[i] = np.mean(contribution)     #take average from all neighbours
+                    continue    
+
+                ##### alignment #####
+
+                align_ = np.where(align_mask[i])[0]
+                align_contribution = np.zeros(len(align_))
+
+                for k, j in enumerate(align_):
+
+                    j_small = (self.size[j] == 0)
+
+                    if i_small:
 
                         if j_small:
-                            scale_factor = repel_scalefactor_l * active_sort_repel
+                            scale_factor = align_scalefactor * active_sort_align
 
                         else:
-                            scale_factor = repel_scalefactor_l / active_sort_repel
-                    
-                    contribution[k] = repel(rel_bearing[i, j], dist[i, j], scale_factor)
-                
-                rotation[i] = np.mean(contribution)     #take average from all neighbours
-                continue    
+                            scale_factor = align_scalefactor / active_sort_align
 
-            ##### alignment #####
-
-            align_ = np.where(align_mask[i])[0]
-            align_contribution = np.zeros(len(align_))
-
-            for k, j in enumerate(align_):
-
-                j_small = (self.size[j] == 0)
-
-                if i_small:
-
-                    if j_small:
-                        scale_factor = align_scalefactor * active_sort_align
-
-                    else:
-                        scale_factor = align_scalefactor / active_sort_align
-
-                    align_range_i = self.aligning_range[i]
-                    repel_range_i = self.repulsion_range[i]
-                
-                else:
-
-                    if j_small:
-                        scale_factor = align_scalefactor / active_sort_align
+                        align_range_i = self.aligning_range[i]
+                        repel_range_i = self.repulsion_range[i]
                     
                     else:
-                        scale_factor = align_scalefactor * active_sort_align
-                    
-                    align_range_i = self.aligning_range[i]
-                    repel_range_i = self.repulsion_range[i]
-                
-                align_contribution[k] = align(dist[i, j], self.angle[j], self.angle[i], scale_factor, align_range_i, repel_range_i)
 
+                        if j_small:
+                            scale_factor = align_scalefactor / active_sort_align
+                        
+                        else:
+                            scale_factor = align_scalefactor * active_sort_align
+                        
+                        align_range_i = self.aligning_range[i]
+                        repel_range_i = self.repulsion_range[i]
+                    
+                    align_contribution[k] = align(dist[i, j], self.angle[j], self.angle[i], scale_factor, align_range_i, repel_range_i)
+
+                
+                ##### attraction #####
+
+                attract_ = np.where(attract_mask[i])[0]
+                attract_contribution = np.zeros(len(attract_))
+
+                for k, j in enumerate(attract_):
+
+                    j_small = (self.size[j] == 0)
+
+                    if i_small:
+
+                        if j_small:
+                            scale_factor = attract_scalefactor * active_sort_attract
+
+                        else:
+                            scale_factor = attract_scalefactor / active_sort_attract
+
+                    else:
+
+                        if j_small:
+                            scale_factor = attract_scalefactor / active_sort_attract
+                        
+                        else:
+                            scale_factor = attract_scalefactor * active_sort_attract
+                        
+                    attract_contribution[k] = attract(rel_bearing[i, j], dist[i, j], scale_factor, self.attraction_range[i], self.aligning_range[i])
             
-            ##### attraction #####
 
-            attract_ = np.where(attract_mask[i])[0]
-            attract_contribution = np.zeros(len(attract_))
+                    #self.attract(dist_at[i, j], scale_factor)    
+                    
 
-            for k, j in enumerate(attract_):
+                rotation_align = 0 if align_.size == 0 else np.mean(align_contribution)
+                rotation_attract = 0 if attract_.size == 0 else np.mean(attract_contribution)
 
-                j_small = (self.size[j] == 0)
-
-                if i_small:
-
-                    if j_small:
-                        scale_factor = attract_scalefactor * active_sort_attract
-
-                    else:
-                        scale_factor = attract_scalefactor / active_sort_attract
+                if (align_.size > 0) or (attract_.size > 0):
+                    rotation[i] = np.mean(rotation_align) + np.mean(rotation_attract) 
 
                 else:
-
-                    if j_small:
-                        scale_factor = attract_scalefactor / active_sort_attract
-                    
-                    else:
-                        scale_factor = attract_scalefactor * active_sort_attract
-                    
-                attract_contribution[k] = attract(rel_bearing[i, j], dist[i, j], scale_factor, self.attraction_range[i], self.aligning_range[i])
-        
-
-                #self.attract(dist_at[i, j], scale_factor)    
-                
-
-            rotation_align = 0 if align_.size == 0 else np.mean(align_contribution)
-            rotation_attract = 0 if attract_.size == 0 else np.mean(attract_contribution)
+                    rotation[i] = 0
 
             ##### response to pred #####
-            
-            pred_ = np.where(pred_mask[i])[0]
-            pred_contribution = np.zeros(len(pred_))
-
-            #for j in enumerate(pred_):
-
-            pred_contribution = -self.predator_fish_response(rel_bearing_to_pred[i])
-
-            rotation_pred = 0 if pred_.size == 0 else np.mean(pred_contribution)
-            
-
-            if (align_.size > 0) or (attract_.size > 0) or (rotation_pred > 0):
-                rotation[i] = np.mean(rotation_align) + np.mean(rotation_attract) #+ np.mean(rotation_pred)
-
             else:
-                rotation[i] = 0
+                pred_ = np.where(fish_pred_mask[i])[0]
+                pred_contribution = np.zeros(len(pred_))
+
+                #for j in enumerate(pred_):
+
+                #fish school disperse away from predator, so rotation is in opposite direction to the contribution of the predator
+                pred_contribution = -self.prey_scatter(rel_bearing_to_pred[i])
+
+                rotation_pred = 0 if pred_.size == 0 else np.mean(pred_contribution)
+                #self.see_pred[i] = 1 if pred_.size > 0 else 0
+
+                if pred_.size > 0:
+                    rotation[i] = np.mean(rotation_pred)
+                else:
+                    rotation[i] = 0
+            
+
+            
             
 
 
@@ -979,6 +1062,11 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         update_angle = np.random.normal(mean_heading, direction_SD)     
 
         #self.v = self.speed()
+
+        change_in_angle = angle_wrap(update_angle - angle)
+        max_turn = turning_rate 
+        change_in_angle = np.clip(change_in_angle, -max_turn, max_turn)
+        update_angle = angle_wrap(angle + change_in_angle)
 
         cos = np.cos(update_angle)
         sin = np.sin(update_angle)
@@ -992,17 +1080,100 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
         stats = self.stats()
 
-        self.centre_dist.append(stats["center_distance"])
-        self.near1.append(stats["nearest_neighbor"])
-        self.near2.append(stats["second_neighbor"])
-        self.Nearest_Neighbours_.append(stats["Nearest_Neighbours"])
-        self.pol_parame.append(stats["polar order parameter"])
-        self.group_vel.append(stats["group velocity"])
+        #if np.all(self.see_pred == 0):
+
+        check = self.see_pred == True
+
+        # if more than half the fish see the predator, count as under threat
+        if check.sum() > self.N // 2:
+            # append threat stats (use non-threat as fallback)
+            self.centre_dist_threat.append(stats.get("center_distance_threat", stats.get("center_distance")))
+            self.near1_threat.append(stats.get("nearest_neighbor_threat", stats.get("nearest_neighbor")))
+            self.near2_threat.append(stats.get("second_neighbor_threat", stats.get("second_neighbor")))
+            self.Nearest_Neighbours_threat.append(stats.get("Nearest_Neighbours_threat", stats.get("Nearest_Neighbours")))
+            self.pol_parame_threat.append(stats.get("polar order parameter_threat", stats.get("polar order parameter")))
+            self.group_vel_threat.append(stats.get("group velocity_threat", stats.get("group velocity")))
+        else:
+            # append normal stats (use threat as fallback)
+            self.centre_dist.append(stats.get("center_distance", stats.get("center_distance_threat")))
+            self.near1.append(stats.get("nearest_neighbor", stats.get("nearest_neighbor_threat")))
+            self.near2.append(stats.get("second_neighbor", stats.get("second_neighbor_threat")))
+            self.Nearest_Neighbours_.append(stats.get("Nearest_Neighbours", stats.get("Nearest_Neighbours_threat")))
+            self.pol_parame.append(stats.get("polar order parameter", stats.get("polar order parameter_threat")))
+            self.group_vel.append(stats.get("group velocity", stats.get("group velocity_threat")))
 
 
 
-        return self.pos, cos, sin, self.pred_pos, pred_cos, pred_sin, stats["center_distance"]#, t#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.Nearest_Neighbours_.copy()
+        return self.pos, cos, sin, self.pred_pos, pred_cos, pred_sin, self.see_pred#, t#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.Nearest_Neighbours_.copy()
     
+
+#for animation
+
+if __name__ == "__main__":
+    sim = HemelrijkSimulation(mode=MODE)
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.set_xlim(0, D)
+    ax.set_ylim(0, D)
+    ax.set_xticks([D])
+    ax.set_yticks([D])
+    ax.set_aspect('equal', adjustable='box')
+    #ax.set_xlabel('x-axis', fontsize='14')
+    #ax.set_ylabel('y-axis', fontsize='14')
+    # colors by size
+    colors = np.where(sim.size == 0, 'black', 'black')
+
+    quiv = ax.quiver(sim.pos[:, 0], sim.pos[:, 1], np.cos(sim.angle), np.sin(sim.angle),
+                     angles='xy', scale_units='xy', pivot='mid', color=colors)
+    pred = ax.quiver(sim.pred_pos[:, 0], sim.pred_pos[:, 1], np.cos(sim.pred_angle), np.sin(sim.pred_angle), 
+                     angles='xy', scale_units='xy', pivot='mid', color='red')
+    pred_range = plt.Circle((sim.pred_pos[:, 0], sim.pred_pos[:, 1]), 5, color='red', fill=False)
+    ax.add_patch(pred_range)
+
+    #plt.title(f"Hemelrijk-style simulation — mode: {MODE}", fontsize=14)
+    #plt.title('(c)', fontsize='14')
+
+    def animate(frame):
+        #print('frame:', frame)
+        global quiv
+        pos, cos, sin, pred_pos, pred_cos, pred_sin, b = sim.step()
+
+        # If the number of agents has changed (e.g. one was removed by predator),
+        # recreate the quiver so the number of arrow positions matches the data.
+        current_N = pos.shape[0]
+        quiv_N = getattr(quiv, 'N', None)   #get named attribute from object, return None if not found
+
+        if quiv_N is None:
+            try:
+                quiv_N = quiv.X.size
+            except Exception:
+                quiv_N = None
+
+        if quiv_N is None or current_N != quiv_N:
+            try:
+                quiv.remove()
+            except Exception:
+                pass
+            colors_now = np.where(sim.size == 0, 'black', 'black')
+            quiv = ax.quiver(pos[:, 0], pos[:, 1], cos, sin,
+                             angles='xy', scale_units='xy', pivot='mid', color=colors_now)
+        else:
+            quiv.set_offsets(pos)
+            quiv.set_UVC(cos, sin)
+
+        # Update predator arrows and range
+        pred.set_offsets(pred_pos)
+        pred.set_UVC(pred_cos, pred_sin)
+        pred_range.center = pred_pos[0]
+        print(b)
+        return (quiv, pred, pred_range)
+
+    anim = FuncAnimation(fig, animate, frames=1000, interval=20, blit=False, repeat=False)
+    #anim.save("moving predator, stops when fish caught, increase speed for hunt, prey escape.gif", dpi=300)
+    plt.show()
+
+
+
+
 
     '''
 
@@ -1287,72 +1458,6 @@ plt.savefig('Hemelrijk 2003 Near neighbour and distance to centre plot.png', dpi
 
 
 
-#for animation
-
-if __name__ == "__main__":
-    sim = HemelrijkSimulation(mode=MODE)
-    fig, ax = plt.subplots(figsize=(6, 6))
-    ax.set_xlim(0, D)
-    ax.set_ylim(0, D)
-    ax.set_xticks([D])
-    ax.set_yticks([D])
-    ax.set_aspect('equal', adjustable='box')
-    #ax.set_xlabel('x-axis', fontsize='14')
-    #ax.set_ylabel('y-axis', fontsize='14')
-    # colors by size
-    colors = np.where(sim.size == 0, 'black', 'black')
-
-    quiv = ax.quiver(sim.pos[:, 0], sim.pos[:, 1], np.cos(sim.angle), np.sin(sim.angle),
-                     angles='xy', scale_units='xy', pivot='mid', color=colors)
-    pred = ax.quiver(sim.pred_pos[:, 0], sim.pred_pos[:, 1], np.cos(sim.pred_angle), np.sin(sim.pred_angle), 
-                     angles='xy', scale_units='xy', pivot='mid', color='red')
-    pred_range = plt.Circle((sim.pred_pos[:, 0], sim.pred_pos[:, 1]), 5, color='red', fill=False)
-    ax.add_patch(pred_range)
-
-    #plt.title(f"Hemelrijk-style simulation — mode: {MODE}", fontsize=14)
-    #plt.title('(c)', fontsize='14')
-
-    def animate(frame):
-        #print('frame:', frame)
-        global quiv
-        pos, cos, sin, pred_pos, pred_cos, pred_sin, b = sim.step()
-
-        # If the number of agents has changed (e.g. one was removed by predator),
-        # recreate the quiver so the number of arrow positions matches the data.
-        current_N = pos.shape[0]
-        quiv_N = getattr(quiv, 'N', None)   #get named attribute from object, return None if not found
-
-        if quiv_N is None:
-            try:
-                quiv_N = quiv.X.size
-            except Exception:
-                quiv_N = None
-
-        if quiv_N is None or current_N != quiv_N:
-            try:
-                quiv.remove()
-            except Exception:
-                pass
-            colors_now = np.where(sim.size == 0, 'black', 'black')
-            quiv = ax.quiver(pos[:, 0], pos[:, 1], cos, sin,
-                             angles='xy', scale_units='xy', pivot='mid', color=colors_now)
-        else:
-            quiv.set_offsets(pos)
-            quiv.set_UVC(cos, sin)
-
-        # Update predator arrows and range
-        pred.set_offsets(pred_pos)
-        pred.set_UVC(pred_cos, pred_sin)
-        pred_range.center = pred_pos[0]
-        #print(b)
-        return (quiv, pred, pred_range)
-
-    anim = FuncAnimation(fig, animate, frames=T, interval=20, blit=False, repeat=False)
-    #anim.save("moving predator with fish response.gif", dpi=300)
-    plt.show()
-
-
-
 
 
 '''
@@ -1392,7 +1497,7 @@ def plot_agent_LOS_debug(sim, i=0, N_seCTORS=10, max_range=None):
     #visible = sector_mask_at[i]
     visible[i] = False
 
-    ax.scatter(
+    ax.prey_scatter(
         pos[~visible, 0],
         pos[~visible, 1],
         s=40,
@@ -1401,7 +1506,7 @@ def plot_agent_LOS_debug(sim, i=0, N_seCTORS=10, max_range=None):
         label="Blocked"
     )
 
-    ax.scatter(
+    ax.prey_scatter(
         pos[visible, 0],
         pos[visible, 1],
         s=40,
@@ -1410,7 +1515,7 @@ def plot_agent_LOS_debug(sim, i=0, N_seCTORS=10, max_range=None):
     )
 
     # --- Focal agent ---
-    ax.scatter(pos[i, 0], pos[i, 1], c="black", s=80, zorder=5)
+    ax.prey_scatter(pos[i, 0], pos[i, 1], c="black", s=80, zorder=5)
 
     # Heading arrow
     ax.plot(
@@ -1511,7 +1616,7 @@ def plot_agent_interaction_regions(sim, i=0, max_range=6.0):
     ax.set_aspect("equal")
 
     # focal agent
-    ax.scatter(pos[i, 0], pos[i, 1], s=120, c="black", zorder=5)
+    ax.prey_scatter(pos[i, 0], pos[i, 1], s=120, c="black", zorder=5)
     ax.arrow(
         pos[i, 0], pos[i, 1],
         np.cos(ang[i]), np.sin(ang[i]),
@@ -1519,19 +1624,19 @@ def plot_agent_interaction_regions(sim, i=0, max_range=6.0):
     )
 
     # neighbours by interaction type
-    ax.scatter(
+    ax.prey_scatter(
         pos[repel_mask[i], 0],
         pos[repel_mask[i], 1],
         c="red", label="Repulsion", s=60
     )
 
-    ax.scatter(
+    ax.prey_scatter(
         pos[align_mask[i], 0],
         pos[align_mask[i], 1],
         c="orange", label="Alignment", s=60
     )
 
-    #ax.scatter(
+    #ax.prey_scatter(
     #    pos[attract_mask[i], 0],
     #    pos[attract_mask[i], 1],
     #    c="blue", label="Attraction", s=60
@@ -1540,7 +1645,7 @@ def plot_agent_interaction_regions(sim, i=0, max_range=6.0):
     # non-interacting neighbours
     none_mask = ~(repel_mask[i] | align_mask[i] | attract_mask[i])
     none_mask[i] = False
-    ax.scatter(
+    ax.prey_scatter(
         pos[none_mask, 0],
         pos[none_mask, 1],
         facecolors="none", edgecolors="grey",
