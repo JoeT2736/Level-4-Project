@@ -565,7 +565,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         range_i = np.atleast_1d(self.attraction_range)[:, None]  # (N,1)
         mask_distance = distances <= range_i
 
-        mask = mask_distance & LOS_mask
+        mask = mask_distance #& LOS_mask
         return mask
     
 
@@ -580,8 +580,11 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         #dist = self.pred_dist()
         signs = np.sign(rel_bearing_to_pred)
         signs[signs == 0] = np.random.choice([-1, 1], size=(signs == 0).sum())  #if signs is 0, pick a random choice of positive or negative for the interaction
-        rotate = -turning_rate * signs
-        rotate_weight = 2
+        rotate = -signs
+        rotate_weight = 3
+
+        C_ie = min(rel_bearing_to_pred )
+
 
         return np.mean(rotate * rotate_weight)
     
@@ -724,6 +727,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         num_pred = self.pred_pos.shape[0]
         pred_update_angle = np.array(self.pred_angle, copy=True)
         pred_move_mask = np.zeros(num_pred, dtype=bool)
+        prob_dist = None
 
         #choose nearest visible fish per predator and aim at it
 
@@ -737,12 +741,19 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
             #nearest fish
             local_dists = pred_distances[candidates, j]
-            sorted_candidates = np.sort(local_dists).argsort()  #sort candidates by distance
-            #chosen = candidates[np.argmin(local_dists)]
-            close_five = sorted_candidates[:5]  #indices of the five closest candidates
-            prob_dist = np.exp(-local_dists[close_five])  #convert distances to probabilities (closer fish more likely to be chosen)
-            prob_dist /= np.sum(prob_dist)  #normalize to sum to 1
-            chosen = np.random.choice(close_five, p=prob_dist)#closest five candidates
+            # get indices of candidates sorted by distance
+            sorted_idx = np.argsort(local_dists)
+            top_idx = sorted_idx[:5]
+            # map back to global fish indices
+            close_five = candidates[top_idx]
+            if close_five.size == 0:
+                prob_dist = None
+                continue
+            # build probability distribution from the corresponding distances
+            prob_dist = 1.0 / (local_dists[top_idx] + 1e-3)
+            prob_dist /= np.sum(prob_dist)
+
+            chosen = np.random.choice(close_five, p=prob_dist)  # chosen is global fish index
 
 
             #direction to chosen fish
@@ -799,13 +810,11 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         pred_speeds[self.pred_stop_counter > 0] = 0.0
         pred_update_angle[self.pred_stop_counter > 0] = np.random.uniform(-1, 1) * turning_rate * 10
 
-        # limit predator turning per step
+        #limit predator turning per step, unless fish caught
         if not pred_update_angle[self.pred_stop_counter > 0].size == 1:
             delta = angle_wrap(pred_update_angle - self.pred_angle)
-            # if `self.pred_turning_rate` is radians per step use directly,
-            # otherwise if it's radians per unit time multiply by step: * self.pred_stepsize
             max_turn = self.pred_turning_rate
-            delta = np.clip(delta, -max_turn, max_turn)
+            delta = np.clip(delta, -max_turn*2, max_turn*2)
             pred_update_angle = angle_wrap(self.pred_angle + delta)
 
         pred_cos = np.cos(pred_update_angle)
@@ -921,135 +930,135 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
             self.see_pred[i] = 1 if bool(np.any(fish_pred_mask[i])) else 0
 
-            if np.any(self.see_pred[i]) == 0:
+            #if np.any(self.see_pred[i]) == 0:
 
-                i_small = (self.size[i] == 0)   #check if focus agent (i) is small or large
+            i_small = (self.size[i] == 0)   #check if focus agent (i) is small or large
 
-                ##### repulsion #####
+            ##### repulsion #####
 
-                repel_ = np.where(repel_mask[i])[0]
+            repel_ = np.where(repel_mask[i])[0]
 
-                if repel_.size > 0:  #compute if there are neighbours in repulsion zone
-                    
-                    contribution = np.zeros(len(repel_))     #set up array to store the contribution of repulsion due to each neighbour
-
-                    # k = counter, j = element ???
-                    for k, j in enumerate(repel_):  #for each value in repel_ (for each neighbour j)        enumerate adds a counter to the element depending on its position in the list
-
-                        j_small = (self.size[j] == 0)   #check size of neighbour
-
-                        if i_small:     #if focus agent small
-
-                            if j_small:     #if neighbour small, change scale factor
-                                scale_factor = repel_scalefactor_s / active_sort_repel
-                            
-                            else:   #if neighbour large
-                                scale_factor = repel_scalefactor_s * active_sort_repel * risk_avoidance
-                        
-                        else:   #if focus agent large
-
-                            if j_small:
-                                scale_factor = repel_scalefactor_l * active_sort_repel
-
-                            else:
-                                scale_factor = repel_scalefactor_l / active_sort_repel
-                        
-                        contribution[k] = repel(rel_bearing[i, j], dist[i, j], scale_factor)
-                    
-                    rotation[i] = np.mean(contribution)     #take average from all neighbours
-                    continue    
-
-                ##### alignment #####
-
-                align_ = np.where(align_mask[i])[0]
-                align_contribution = np.zeros(len(align_))
-
-                for k, j in enumerate(align_):
-
-                    j_small = (self.size[j] == 0)
-
-                    if i_small:
-
-                        if j_small:
-                            scale_factor = align_scalefactor * active_sort_align
-
-                        else:
-                            scale_factor = align_scalefactor / active_sort_align
-
-                        align_range_i = self.aligning_range[i]
-                        repel_range_i = self.repulsion_range[i]
-                    
-                    else:
-
-                        if j_small:
-                            scale_factor = align_scalefactor / active_sort_align
-                        
-                        else:
-                            scale_factor = align_scalefactor * active_sort_align
-                        
-                        align_range_i = self.aligning_range[i]
-                        repel_range_i = self.repulsion_range[i]
-                    
-                    align_contribution[k] = align(dist[i, j], self.angle[j], self.angle[i], scale_factor, align_range_i, repel_range_i)
-
+            if repel_.size > 0:  #compute if there are neighbours in repulsion zone
                 
-                ##### attraction #####
+                contribution = np.zeros(len(repel_))     #set up array to store the contribution of repulsion due to each neighbour
 
-                attract_ = np.where(attract_mask[i])[0]
-                attract_contribution = np.zeros(len(attract_))
+                # k = counter, j = element ???
+                for k, j in enumerate(repel_):  #for each value in repel_ (for each neighbour j)        enumerate adds a counter to the element depending on its position in the list
 
-                for k, j in enumerate(attract_):
+                    j_small = (self.size[j] == 0)   #check size of neighbour
 
-                    j_small = (self.size[j] == 0)
+                    if i_small:     #if focus agent small
 
-                    if i_small:
+                        if j_small:     #if neighbour small, change scale factor
+                            scale_factor = repel_scalefactor_s / active_sort_repel
+                        
+                        else:   #if neighbour large
+                            scale_factor = repel_scalefactor_s * active_sort_repel * risk_avoidance
+                    
+                    else:   #if focus agent large
 
                         if j_small:
-                            scale_factor = attract_scalefactor * active_sort_attract
+                            scale_factor = repel_scalefactor_l * active_sort_repel
 
                         else:
-                            scale_factor = attract_scalefactor / active_sort_attract
+                            scale_factor = repel_scalefactor_l / active_sort_repel
+                    
+                    contribution[k] = repel(rel_bearing[i, j], dist[i, j], scale_factor)
+                
+                rotation[i] = np.mean(contribution)     #take average from all neighbours
+                continue    
+
+            ##### alignment #####
+
+            align_ = np.where(align_mask[i])[0]
+            align_contribution = np.zeros(len(align_))
+
+            for k, j in enumerate(align_):
+
+                j_small = (self.size[j] == 0)
+
+                if i_small:
+
+                    if j_small:
+                        scale_factor = align_scalefactor * active_sort_align
 
                     else:
+                        scale_factor = align_scalefactor / active_sort_align
 
-                        if j_small:
-                            scale_factor = attract_scalefactor / active_sort_attract
-                        
-                        else:
-                            scale_factor = attract_scalefactor * active_sort_attract
-                        
-                    attract_contribution[k] = attract(rel_bearing[i, j], dist[i, j], scale_factor, self.attraction_range[i], self.aligning_range[i])
-            
+                    align_range_i = self.aligning_range[i]
+                    repel_range_i = self.repulsion_range[i]
+                
+                else:
 
-                    #self.attract(dist_at[i, j], scale_factor)    
+                    if j_small:
+                        scale_factor = align_scalefactor / active_sort_align
                     
+                    else:
+                        scale_factor = align_scalefactor * active_sort_align
+                    
+                    align_range_i = self.aligning_range[i]
+                    repel_range_i = self.repulsion_range[i]
+                
+                align_contribution[k] = align(dist[i, j], self.angle[j], self.angle[i], scale_factor, align_range_i, repel_range_i)
 
-                rotation_align = 0 if align_.size == 0 else np.mean(align_contribution)
-                rotation_attract = 0 if attract_.size == 0 else np.mean(attract_contribution)
+            
+            ##### attraction #####
 
-                if (align_.size > 0) or (attract_.size > 0):
-                    rotation[i] = np.mean(rotation_align) + np.mean(rotation_attract) 
+            attract_ = np.where(attract_mask[i])[0]
+            attract_contribution = np.zeros(len(attract_))
+
+            for k, j in enumerate(attract_):
+
+                j_small = (self.size[j] == 0)
+
+                if i_small:
+
+                    if j_small:
+                        scale_factor = attract_scalefactor * active_sort_attract
+
+                    else:
+                        scale_factor = attract_scalefactor / active_sort_attract
 
                 else:
-                    rotation[i] = 0
+
+                    if j_small:
+                        scale_factor = attract_scalefactor / active_sort_attract
+                    
+                    else:
+                        scale_factor = attract_scalefactor * active_sort_attract
+                    
+                attract_contribution[k] = attract(rel_bearing[i, j], dist[i, j], scale_factor, self.attraction_range[i], self.aligning_range[i])
+        
+
+                #self.attract(dist_at[i, j], scale_factor)    
+                
+
+            rotation_align = 0 if align_.size == 0 else np.mean(align_contribution)
+            rotation_attract = 0 if attract_.size == 0 else np.mean(attract_contribution)
 
             ##### response to pred #####
+            #else:
+            pred_ = np.where(fish_pred_mask[i])[0]
+            pred_contribution = np.zeros(len(pred_))
+
+            #for j in enumerate(pred_):
+
+            #fish school disperse away from predator, so rotation is in opposite direction to the contribution of the predator
+            pred_contribution = -self.prey_scatter(rel_bearing_to_pred[i])
+
+            rotation_pred = 0 if pred_.size == 0 else np.mean(pred_contribution)
+            #self.see_pred[i] = 1 if pred_.size > 0 else 0
+
+            #if pred_.size > 0:
+            #    rotation[i] = np.mean(rotation_pred)
+            #else:
+            #    rotation[i] = 0
+
+            if (align_.size > 0) or (attract_.size > 0) or (pred_.size > 0):
+                rotation[i] = np.mean(rotation_align) + np.mean(rotation_attract) + np.mean(rotation_pred)
+
             else:
-                pred_ = np.where(fish_pred_mask[i])[0]
-                pred_contribution = np.zeros(len(pred_))
-
-                #for j in enumerate(pred_):
-
-                #fish school disperse away from predator, so rotation is in opposite direction to the contribution of the predator
-                pred_contribution = -self.prey_scatter(rel_bearing_to_pred[i])
-
-                rotation_pred = 0 if pred_.size == 0 else np.mean(pred_contribution)
-                #self.see_pred[i] = 1 if pred_.size > 0 else 0
-
-                if pred_.size > 0:
-                    rotation[i] = np.mean(rotation_pred)
-                else:
-                    rotation[i] = 0
+                rotation[i] = 0
             
 
             
@@ -1102,9 +1111,15 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
             self.pol_parame.append(stats.get("polar order parameter", stats.get("polar order parameter_threat")))
             self.group_vel.append(stats.get("group velocity", stats.get("group velocity_threat")))
 
+        '''
+        if prob_dist is not None:
+            print("prob_dist:", prob_dist)
 
+        else:            
+            print("no fish in predator mask")
+        '''
 
-        return self.pos, cos, sin, self.pred_pos, pred_cos, pred_sin, self.see_pred#, t#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.Nearest_Neighbours_.copy()
+        return self.pos, cos, sin, self.pred_pos, pred_cos, pred_sin, self.centre_dist#, t#, self.centre_dist.copy(), self.near1.copy(), self.near2.copy(), self.Nearest_Neighbours_.copy()
     
 
 #for animation
@@ -1164,7 +1179,7 @@ if __name__ == "__main__":
         pred.set_offsets(pred_pos)
         pred.set_UVC(pred_cos, pred_sin)
         pred_range.center = pred_pos[0]
-        print(b)
+        #print(b)
         return (quiv, pred, pred_range)
 
     anim = FuncAnimation(fig, animate, frames=1000, interval=20, blit=False, repeat=False)
