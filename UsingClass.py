@@ -8,6 +8,67 @@ import scipy.spatial
 
 
 
+'''
+epsilon = 1e-6
+
+def distance_weight_plots(x):
+    #W_C = 0.01/(x+0.4)**7 
+    #W_D = 2*np.exp(-(x)**2)
+    k_C = 0.08
+    p = 2.0
+    W_C_max = 5.0
+    W_C = np.minimum(k_C / (x**p + epsilon), W_C_max)
+
+    k_D = 2
+    sigma_D = 1.5
+    W_D = k_D * np.exp(- (x / sigma_D)**2)
+
+    # if predator very close, make perpendicular dominate
+    split_threshold = 1.0
+    close = x < split_threshold
+    W_C = np.where(close, np.maximum(W_C, 1.0 / (x + epsilon)), W_C)
+    W_D = np.where(close, 0.0, W_D)
+    return W_C, W_D
+
+y = np.linspace(0.01, 5, 500)
+W_C, W_D = distance_weight_plots(y)
+plt.figure(figsize=(10, 6))
+plt.plot(y, W_C, label='W_C (repulsion weight)', color='blue')
+plt.plot(y, W_D, label='W_D (attraction weight)', color='orange')
+#plt.axvline(x=0.6, color='red', linestyle='--', label='split threshold (0.6)')
+plt.title('Distance Weights for Repulsion and Attraction')
+plt.xlabel('Distance (d)')
+plt.ylabel('Weight')
+plt.ylim(0, 2.5)
+plt.legend()
+plt.grid()
+'''
+'''
+def weights_plots(x):
+    attract_weight = (0.2 * np.exp(-((x - 0.5 * (5 + 2))/(5 - 2))**2))
+    align_weight = (np.exp(-((x - 0.5 * (2 + 0.6))/(2 - 0.6))**2))
+    repel_weight = ((0.05) / (x))
+    return repel_weight, align_weight, attract_weight
+
+y = np.linspace(0.01, 5, 500)
+repel_weight, align_weight, attract_weight = weights_plots(y)
+plt.figure(figsize=(10, 6))
+plt.plot(y, repel_weight, label='Repulsion Weight', color='blue')
+plt.plot(y, align_weight, label='Alignment Weight', color='orange')
+plt.plot(y, attract_weight, label='Attraction Weight', color='green')
+plt.title('Interaction Weights as a Function of Distance')
+plt.xlabel('Distance (d)')
+plt.ylabel('Weight')
+plt.ylim(0, 2.5)
+plt.legend()
+plt.grid()'''
+plt.show()
+
+
+
+
+
+
 #N = 10         #number of agents
 D = 10          #domain size (square [0, D] x [0, D])
 T = 2000        #number of frames
@@ -251,7 +312,7 @@ def attract(bearing, distance_array, scale_factor, attract_range, align_range):
 
 
 class HemelrijkSimulation:        #vvv change to N=None for static plots (but give a number for animation)
-    def __init__(self, mode=None, N=100, size_ratio=None, prey_reaction=None): #size=None):
+    def __init__(self, mode=None, N=50, size_ratio=0, prey_reaction='reactive'): #size=None):
                                                                                       #^^^^^^^^^ use for animations
         self.time_counter = 0
 
@@ -324,9 +385,9 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         self.pred_mask_distance = 2.0
         # handling_time: how many steps predator pauses after catching prey
         # default to 50 if not provided (matches values used in experiments)
-        self.pred_stop_duration = 50
+        self.pred_stop_duration = 100
         self.pred_stop_counter = np.zeros(num_predators, dtype=int)
-        self.pred_turning_rate = turning_rate / 25
+        self.pred_turning_rate = turning_rate / 50
         self.pred_turning_rate_SD = self.pred_turning_rate / 2
         self.pred_stepsize = stepsize * 1
         self.fish_caught = 0
@@ -703,7 +764,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
         range_i = np.atleast_1d(self.attraction_range)[:, None]  # (N,1)
         mask_distance = distances <= range_i
 
-        mask = mask_distance & LOS_mask
+        mask = mask_distance #& LOS_mask
         return mask
     
 
@@ -741,6 +802,11 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
         # normalized vectors (N, num_pred, 2)
         norm_vec = v_fp / dist_safe[:, :, None]
+
+        # 90deg to norm
+        plus90 = np.stack([-norm_vec[:, :, 1], norm_vec[:, :, 0]], axis=2)  # (N, num_pred, 2)
+        minus90 = -plus90
+
 
         # Vectorized decision per prey-predator pair:
         # - if prey is farther than threshold, move away from predator
@@ -792,6 +858,55 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
 
         return -torque 
+
+
+
+    def new_prey_scatter(self, rel_pred_vectors, dist_to_pred):
+        """Compute signed turning torque per prey from predator vectors.
+
+        Inputs:
+        - rel_pred_vectors: (N, num_pred, 2) vectors from predator to prey (prey - pred)
+        - dist_to_pred: (N, num_pred) distances
+
+        Returns:
+        - torque: (N,) signed angular velocity (rad/s)
+        """
+        rv = np.asarray(rel_pred_vectors)
+        if rv.ndim != 3:
+            raise ValueError(f"new_prey_scatter expects rel_pred_vectors shape (N,num_pred,2), got {rv.shape}")
+
+        # vector from prey to predator
+        prey_to_pred = -rv  # (N, num_pred, 2)
+        angle_to_pred = np.arctan2(prey_to_pred[:, :, 1], prey_to_pred[:, :, 0])  # (N, num_pred)
+
+        # desired away angle relative to prey heading
+        desired_away_rel = angle_wrap(angle_to_pred + np.pi - self.angle[:, None])
+
+        # perpendicular option: sign of desired_away_rel chooses left/right
+        C_ie = np.sign(desired_away_rel) * (np.pi / 2.0) + desired_away_rel
+        D_ie = desired_away_rel
+
+        # distance weights (tuned)
+        d_safe = np.maximum(dist_to_pred, epsilon)
+        k_C = 0.08
+        p = 2.0
+        W_C_max = 5.0
+        W_C = np.minimum(k_C / (d_safe**p + epsilon), W_C_max)
+
+        k_D = 2
+        sigma_D = 1.5
+        W_D = k_D * np.exp(- (d_safe / sigma_D)**2)
+
+        # if predator very close, make perpendicular dominate
+        split_threshold = 2.0
+        close = d_safe < split_threshold
+        W_C = np.where(close, np.maximum(W_C, 1.0 / (d_safe + epsilon)), W_C)
+        W_D = np.where(close, 0.0, W_D)
+
+        combined = W_C * C_ie + W_D * D_ie
+        torque = combined
+        torque = np.clip(torque, -turning_rate, turning_rate)
+        return torque
     
     '''
         #force eqs, fish turn away from predator
@@ -1134,9 +1249,9 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
                 pass
 
         #no fish in mask
-        no_move = ~pred_move_mask
-        if np.any(no_move):
-            pred_update_angle[no_move] = np.random.normal(self.pred_angle[no_move], self.pred_turning_rate_SD)
+        #no_move = ~pred_move_mask
+        #if np.any(no_move):
+        #    pred_update_angle[no_move] = np.random.normal(self.pred_angle[no_move], self.pred_turning_rate_SD)
 
         pred_speeds_cruise = self.speed_pred_cruise()
         pred_speeds_hunt = self.speed_pred_hunt()
@@ -1146,15 +1261,15 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
         #freeze stopped predators
         pred_speeds[self.pred_stop_counter > 0] = 0.0
-        pred_update_angle[self.pred_stop_counter > 0] = np.random.uniform(-1, 1) * turning_rate * 10
+        #pred_update_angle[self.pred_stop_counter > 0] = np.random.uniform(-1, 1) * turning_rate * 10
 
         #limit predator turning per step, unless fish caught
-        if not pred_update_angle[self.pred_stop_counter > 0].size == 1:
-            delta = angle_wrap(pred_update_angle - self.pred_angle)
-            max_turn = self.pred_turning_rate
-            delta = np.clip(delta, -max_turn*2, max_turn*2)
-            pred_update_angle = angle_wrap(self.pred_angle + delta)
-        
+        #if not pred_update_angle[self.pred_stop_counter > 0].size == 1:
+        delta = angle_wrap(pred_update_angle - self.pred_angle)
+        max_turn = self.pred_turning_rate
+        delta = np.clip(delta, -max_turn*2, max_turn*2)
+        pred_update_angle = angle_wrap(self.pred_angle + delta)
+    
         # apply per-predator circular-domain torque (do not reduce to scalar)
         #pred_update_angle = pred_update_angle + self.circular_domain_interaction(self.pred_pos, pred_update_angle)
 
@@ -1303,6 +1418,9 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
         fish_pred_mask = self.pred_mask_fish(rel_bearing_to_pred)
 
+        # compute predator-induced torques for all prey at once (vectorized)
+        pred_new_torques = self.new_prey_scatter(rel_pred, pred_distances)
+
 
         ### For LOS blocking ###
         #sector_mask = self.LOS_block(10, dist, bearing)
@@ -1313,6 +1431,7 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
 
         rotation = np.zeros(N)
         rotation_repel = np.zeros(N)
+        #pred_new_torques = np.zeros(N)
 
         #find rotation at each time step for all agents i
         for i in range(N):
@@ -1430,19 +1549,20 @@ class HemelrijkSimulation:        #vvv change to N=None for static plots (but gi
             ##### response to pred #####
             #else:
             pred_ = np.where(fish_pred_mask[i])[0]
-            pred_contribution = np.zeros(len(pred_))
-
             # fish school disperse away from predator: compute torque from all predators
             # rel_pred (N, num_pred, 2) was defined earlier as vectors from fish to pred frame
+            '''
             pred_torques = self.prey_scatter(rel_pred)
             delta = angle_wrap(pred_torques - angle[i])
             max_turn = turning_rate * 1.5 
             delta = np.clip(delta, -max_turn, max_turn)
             pred_torques = angle_wrap(angle[i] + delta) 
+            '''
+            #pred_new_torques = self.new_prey_scatter(rel_bearing_to_pred[i], pred_distances[i])
             
 
             # take torque for focal fish i (sum of predator contributions)
-            rotation_pred = 0 if pred_.size == 0 else pred_torques[i]
+            rotation_pred = 0 if pred_.size == 0 else pred_new_torques[i]
             #self.see_pred[i] = 1 if pred_.size > 0 else 0
 
             #if pred_.size > 0:
@@ -1558,7 +1678,7 @@ plt.rcParams["font.family"] = "Times New Roman"
     
 
 #for animation
-'''
+
 if __name__ == "__main__":
     sim = HemelrijkSimulation(mode=MODE)
     #center = sim.D / 2.0
@@ -1626,7 +1746,7 @@ if __name__ == "__main__":
     #anim.save(f'KH sim for talk (even better attract_mask) half l,s (N={sim.N}) no predator .gif', writer='pillow', dpi=200)
 
     plt.show()
-'''
+
 
 
 
@@ -1830,7 +1950,7 @@ def effectiveness_size_ratio(size_ratio, reaction, repeats=25):
 
     return avg_effectiveness
 
-
+'''
 avg_eff = effectiveness_size_ratio(size_ratio=size_ratio, reaction=reactions)
 
 
@@ -1846,9 +1966,9 @@ ax.legend(fontsize='14')
 
 
 plt.tight_layout()
-plt.savefig('effectiveness for different ratios of small to large fish (lower ratio means more large fish) N=100', dpi=200)
+#plt.savefig('effectiveness for different ratios of small to large fish (lower ratio means more large fish) N=100', dpi=200)
 #plt.show()
-
+'''
 
 
 
@@ -1899,7 +2019,7 @@ plt.show()
 
 
 
-
+'''
 def run_sim(N_vals, fish_size, repeats=25):
     modes = ['point', 'line', 'ellipse']
 
@@ -1973,7 +2093,7 @@ def run_sim(N_vals, fish_size, repeats=25):
     return avg_polar_order_norm, avg_group_vel_norm #avg_centre_norm, avg_near_n_norm#, avg_polar_order
 
 
-
+'''
 
 
 
@@ -2234,7 +2354,7 @@ sim.step()
 
 
 
-
+'''
 def plot_agent_interaction_regions(sim, i=0, max_range=6.0):
     """
     Static plot of interaction regions for focal agent i.
@@ -2334,7 +2454,7 @@ def plot_agent_interaction_regions(sim, i=0, max_range=6.0):
     ax.legend()
     plt.show()
 
-
+'''
 #sim = HemelrijkSimulation(mode=MODE)
 #sim.step()
 #plot_agent_interaction_regions(sim, i=0)
