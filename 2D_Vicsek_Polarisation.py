@@ -25,16 +25,19 @@ def Vicsek_pol(N, eta, D):
     average_pol = []
 
     for k in eta:
+        print('Noise = ', k)
 
         pol = []
     
-        for _ in range(5):
+        for _ in range(25):
+            print('Repeat = ', _)
 
             pos = np.random.uniform(0, D, size=(N, 2))
             angle = np.random.uniform(0, 2*np.pi, size=N)
             pol_time_step = []
 
             for _ in range(T):
+                #print('Time step = ', _)
             
                 DistanceMatrix = squareform(pdist(pos))
                 noise = np.random.uniform(-k/2, k/2, size=(N))
@@ -75,8 +78,8 @@ def Vicsek_pol(N, eta, D):
 
 Populations = [40, 100, 400]
 Size = [3.1, 5, 10]
-eta = np.linspace(0, 10, 50)
-shapes = ['o', '^', 's']
+eta = np.linspace(0, 8, 50)
+shapes = ['s', 'x', '^']
 #print(Vicsek_pol(40, eta, 3.1))
 
 fig, ax = plt.subplots(figsize=(7, 7))
@@ -89,12 +92,12 @@ ax.plot(0, 1, color='white')
 ax.plot(0, 0, color='white')
 ax.set_xlabel('Noise (η)', fontsize=14)
 ax.set_ylabel('Polar Order Parameter', fontsize=14)
-ax.set_title('Periodic boundary conditions')
+#ax.set_title('Periodic boundary conditions', fontsize=14)
 ax.tick_params(direction='out', length=4, width=1, labelsize=12, top=False, right=False)
 ax.legend(fontsize=14)
 #ax.minorticks_on()
-plt.savefig(f"Polar Order Parameter, periodic boundary conditions, 5x mean.png", dpi=400)
-plt.show()
+plt.savefig(f"Polar Order Parameter, periodic boundary conditions, 25x mean.png", dpi=400)
+#plt.show()
 
 
 
